@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Failed - KEM</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Archivo', sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 60px 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .error-icon {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #ef4444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            animation: shake 0.5s ease-out;
+        }
+        .error-icon::after {
+            content: '✕';
+            color: white;
+            font-size: 48px;
+            font-weight: bold;
+        }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+        h1 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2.5rem;
+            color: #1a1a1a;
+            margin-bottom: 15px;
+            letter-spacing: 2px;
+        }
+        p {
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .reasons {
+            background: #fff5f5;
+            border-left: 4px solid #ef4444;
+            padding: 20px;
+            text-align: left;
+            margin-bottom: 30px;
+            border-radius: 5px;
+        }
+        .reasons h3 {
+            color: #ef4444;
+            margin-bottom: 10px;
+            font-size: 1.1rem;
+        }
+        .reasons ul {
+            margin-left: 20px;
+            color: #666;
+            line-height: 1.8;
+        }
+        .buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .button {
+            padding: 18px 30px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 1rem;
+            display: inline-block;
+            transition: all 0.3s;
+            letter-spacing: 1px;
+        }
+        .button-primary {
+            background: #ef4444;
+            color: white;
+        }
+        .button-primary:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(239,68,68,0.4);
+        }
+        .button-secondary {
+            background: white;
+            color: #ef4444;
+            border: 2px solid #ef4444;
+        }
+        .button-secondary:hover {
+            background: #fef2f2;
+        }
+        .info {
+            margin-top: 30px;
+            font-size: 0.9rem;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="error-icon"></div>
+        <h1>Payment Failed</h1>
+        <p>We couldn't process your payment. Please try again or choose a different payment method.</p>
+        
+        <div class="reasons">
+            <h3>Common reasons:</h3>
+            <ul>
+                <li>Insufficient funds</li>
+                <li>Incorrect card details</li>
+                <li>Card expired</li>
+                <li>Bank declined the transaction</li>
+                <li>Network connection issue</li>
+            </ul>
+        </div>
+        
+        <div class="buttons">
+            <a href="/" class="button button-primary">TRY AGAIN</a>
+            <a href="/" class="button button-secondary">USE COD</a>
+        </div>
+        
+        <div class="info">
+            Your order was not completed. Items are still in your cart.
+        </div>
+    </div>
+</body>
+</html>

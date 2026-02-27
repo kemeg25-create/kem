@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Successful - KEM</title>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Archivo', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 60px 40px;
+            max-width: 500px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        .checkmark {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #22c55e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 30px;
+            animation: scaleIn 0.5s ease-out;
+        }
+        .checkmark::after {
+            content: '✓';
+            color: white;
+            font-size: 48px;
+            font-weight: bold;
+        }
+        @keyframes scaleIn {
+            from { transform: scale(0); }
+            to { transform: scale(1); }
+        }
+        h1 {
+            font-family: 'Bebas Neue', sans-serif;
+            font-size: 2.5rem;
+            color: #1a1a1a;
+            margin-bottom: 15px;
+            letter-spacing: 2px;
+        }
+        p {
+            color: #666;
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+        .order-id {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            font-size: 0.9rem;
+            color: #666;
+        }
+        .order-id strong {
+            color: #22c55e;
+            font-size: 1.2rem;
+        }
+        .button {
+            background: #22c55e;
+            color: white;
+            padding: 18px 40px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 1.1rem;
+            display: inline-block;
+            transition: all 0.3s;
+            letter-spacing: 1px;
+        }
+        .button:hover {
+            background: #16a34a;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(34,197,94,0.4);
+        }
+        .info {
+            margin-top: 30px;
+            font-size: 0.9rem;
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="checkmark"></div>
+        <h1>Payment Successful!</h1>
+        <p>Your payment has been processed successfully. Your order is confirmed and will be shipped soon.</p>
+        
+        <div class="order-id" id="orderInfo">
+            <div>Order ID: <strong id="orderId">Loading...</strong></div>
+        </div>
+        
+        <a href="/" class="button">RETURN TO STORE</a>
+        
+        <div class="info">
+            You will receive a confirmation email shortly with your order details.
+        </div>
+    </div>
+    
+    <script>
+        // Get order ID from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const orderId = urlParams.get('order');
+        const orderIdElement = document.getElementById('orderId');
+        
+        if (orderId) {
+            orderIdElement.textContent = orderId;
+        } else {
+            orderIdElement.textContent = 'N/A';
+        }
+    </script>
+</body>
+</html>
