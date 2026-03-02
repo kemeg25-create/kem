@@ -31,7 +31,7 @@
     <meta name="twitter:description" content="Shop exclusive streetwear collections. Free shipping over EGP 1000. Cash on delivery available.">
     <meta name="twitter:image" content="https://buykem.com/og-image.jpg">
     
-    <!-- Favicon - UPDATED -->
+    <!-- Favicon -->
     <link rel="icon" type="image/png" href="icon enhanced.png">
     <link rel="apple-touch-icon" href="icon enhanced.png">
     <link rel="shortcut icon" href="icon enhanced.png">
@@ -2501,7 +2501,7 @@
     <!-- Navigation -->
     <nav id="mainNav">
         <div class="logo">
-            <img src="icon enhanced.png" onerror="this.style.display='none'">
+            <img src="icon enhanced.png" alt="KEM" onerror="this.style.display='none'">
             <span class="logo-text">KEM</span>
         </div>
         <ul class="nav-links">
@@ -2891,6 +2891,8 @@
         <div id="products" class="tab-content">
             <div class="action-bar">
                 <input type="text" class="search-box" placeholder="Search products..." id="productSearch" onkeyup="searchProducts()">
+                <button class="add-btn" style="background: #9333ea;" onclick="openCollectionsModal()">+ Manage Collections</button>
+                <button class="add-category-btn" onclick="openCategoryModal()">+ Add Category</button>
                 <button class="add-btn" onclick="openProductForm()">+ Add Product</button>
             </div>
             <table class="data-table">
@@ -5529,7 +5531,238 @@
             if (e.target === this) closeCategoryModal();
         });
 
-        // Product Management Functions
+        // Category Management Functions
+        function openCategoryModal() {
+            document.getElementById('categoryModal').classList.add('active');
+            renderCategories();
+        }
+
+        function closeCategoryModal() {
+            document.getElementById('categoryModal').classList.remove('active');
+            document.getElementById('categoryForm').reset();
+        }
+
+        function renderCategories() {
+            const categoryList = document.getElementById('categoryList');
+            categoryList.innerHTML = '';
+            
+            categories.forEach(category => {
+                const productCount = products.filter(p => p.category === category).length;
+                const categoryItem = document.createElement('div');
+                categoryItem.className = 'category-item';
+                
+                // Escape quotes for safe onclick handling
+                const escapedCategory = category.replace(/'/g, "\\'");
+                
+                categoryItem.innerHTML = `
+                    <div>
+                        <div class="category-name-display">${category}</div>
+                        <div class="category-count">${productCount} product(s)</div>
+                    </div>
+                    <div class="category-actions">
+                        <button class="btn-edit" onclick="editCategory('${escapedCategory}')">Rename</button>
+                        <button class="btn-delete" onclick="deleteCategory('${escapedCategory}')">Delete</button>
+                    </div>
+                `;
+                categoryList.appendChild(categoryItem);
+            });
+        }
+
+        function addCategory(event) {
+            console.log('addCategory called, event:', event);
+            
+            if (event) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+            
+            const inputField = document.getElementById('newCategoryName');
+            console.log('Input field found:', inputField);
+            
+            if (!inputField) {
+                alert('Error: Input field not found');
+                return;
+            }
+            
+            const newCategoryName = inputField.value.trim();
+            console.log('New category name:', newCategoryName);
+            
+            if (!newCategoryName) {
+                alert('Please enter a collection name');
+                return;
+            }
+            
+            if (categories.includes(newCategoryName)) {
+                alert('This collection already exists');
+                return;
+            }
+            
+            categories.push(newCategoryName);
+            console.log('Categories after adding:', categories);
+            
+            document.getElementById('categoryForm').reset();
+            renderCategories();
+            updateProductCategoryDropdown();
+            updateInventoryOverview();
+            
+            alert('Collection "' + newCategoryName + '" added successfully!');
+        }
+
+        function addCategoryPrompt() {
+            const newCategoryName = prompt('Enter new collection name:', '');
+            
+            if (!newCategoryName || newCategoryName.trim() === '') {
+                return; // User cancelled or entered nothing
+            }
+            
+            const trimmedName = newCategoryName.trim();
+            
+            if (categories.includes(trimmedName)) {
+                alert('This collection already exists');
+                return;
+            }
+            
+            categories.push(trimmedName);
+            console.log('Categories after adding:', categories);
+            
+            renderCategories();
+            updateProductCategoryDropdown();
+            updateInventoryOverview();
+            
+            alert('Collection "' + trimmedName + '" added successfully!');
+        }
+
+        function showAddCategoryInput() {
+            const section = document.getElementById('addCategorySection');
+            const input = document.getElementById('categoryNameInput');
+            section.style.display = 'block';
+            input.value = '';
+            setTimeout(() => input.focus(), 100);
+        }
+
+        function hideAddCategoryInput() {
+            document.getElementById('addCategorySection').style.display = 'none';
+            document.getElementById('categoryNameInput').value = '';
+        }
+
+        function saveCategoryFromInput() {
+            const input = document.getElementById('categoryNameInput');
+            const newCategoryName = input.value.trim();
+            
+            console.log('Saving category:', newCategoryName);
+            
+            if (!newCategoryName) {
+                alert('Please enter a collection name');
+                input.focus();
+                return;
+            }
+            
+            if (categories.includes(newCategoryName)) {
+                alert('This collection already exists');
+                input.focus();
+                return;
+            }
+            
+            categories.push(newCategoryName);
+            console.log('Categories after adding:', categories);
+            
+            hideAddCategoryInput();
+            renderCategories();
+            updateProductCategoryDropdown();
+            updateInventoryOverview();
+            
+            alert('Collection "' + newCategoryName + '" added successfully!');
+        }
+
+        function editCategory(oldName) {
+            // Use a similar approach - show inline edit
+            const newName = window.prompt ? prompt('Enter new name for collection:', oldName) : null;
+            
+            // If prompt is blocked, we'll need to handle it differently
+            if (newName === null) {
+                // Prompt was cancelled or blocked
+                const userInput = confirm('Prompt dialogs are blocked. Would you like to use an alternate method? Click OK, then look for the edit section above the category list.');
+                if (userInput) {
+                    alert('Feature coming soon - for now, please delete and recreate the category with a new name.');
+                }
+                return;
+            }
+            
+            if (!newName || newName.trim() === '') return;
+            
+            const trimmedName = newName.trim();
+            
+            if (trimmedName === oldName) return;
+            
+            if (categories.includes(trimmedName)) {
+                alert('A collection with this name already exists');
+                return;
+            }
+            
+            // Update category name
+            const index = categories.indexOf(oldName);
+            categories[index] = trimmedName;
+            
+            // Update all products with this category
+            products.forEach(product => {
+                if (product.category === oldName) {
+                    product.category = trimmedName;
+                }
+            });
+            
+            renderCategories();
+            updateProductCategoryDropdown();
+            loadProducts();
+            updateInventoryOverview();
+        }
+
+        function deleteCategory(categoryName) {
+            const productCount = products.filter(p => p.category === categoryName).length;
+            
+            if (productCount > 0) {
+                const confirmMsg = `This collection has ${productCount} product(s). Deleting it will remove the category from these products. Continue?`;
+                if (!confirm(confirmMsg)) return;
+                
+                // Remove category from products
+                products.forEach(product => {
+                    if (product.category === categoryName) {
+                        product.category = '';
+                    }
+                });
+            } else {
+                if (!confirm(`Delete collection "${categoryName}"?`)) return;
+            }
+            
+            categories = categories.filter(c => c !== categoryName);
+            renderCategories();
+            updateProductCategoryDropdown();
+            loadProducts();
+            updateInventoryOverview();
+        }
+
+        function updateProductCategoryDropdown() {
+            const dropdown = document.getElementById('productCategory');
+            if (!dropdown) return; // Safety check
+            
+            const currentValue = dropdown.value;
+            
+            // Clear and rebuild dropdown
+            dropdown.innerHTML = '<option value="">Select Category</option>';
+            
+            categories.forEach(category => {
+                const option = document.createElement('option');
+                option.value = category;
+                option.textContent = category;
+                dropdown.appendChild(option);
+            });
+            
+            // Restore selected value if it still exists
+            if (currentValue && categories.includes(currentValue)) {
+                dropdown.value = currentValue;
+            }
+        }
+
+        // Footer Settings Functions
         function loadFooterSettings() {
             // Check if elements exist before setting values (they might not exist in employee-only view)
             const instagramLink = document.getElementById('instagramLink');
