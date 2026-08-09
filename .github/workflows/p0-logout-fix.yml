@@ -24,16 +24,9 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p = Path('index.html')
           s = p.read_text()
-          old = """        function logoutEmployee() {
-              currentEmployee = null;
-              promotionsUnlocked = false;
-              document.getElementById('employeeDashboard').classList.remove('active');
-              document.getElementById('mainSite').style.display = 'block';
-              document.getElementById('mainNav').style.display = 'flex';
-          }
-          """
           new = """        async function logoutEmployee() {
               const dashboard = document.getElementById('employeeDashboard');
               const mainSite = document.getElementById('mainSite');
@@ -68,14 +61,24 @@ jobs:
               }
           }
           """
-          if old in s:
-              s = s.replace(old, new, 1)
-              p.write_text(s)
-              print('Employee logout patched.')
-          elif 'async function logoutEmployee()' in s and 'await auth.signOut();' in s:
+          if 'async function logoutEmployee()' in s and 'await auth.signOut();' in s[s.index('async function logoutEmployee()'):s.index('async function logoutEmployee()')+1800]:
               print('Employee logout is already patched; no source change needed.')
           else:
-              raise SystemExit('Expected logoutEmployee implementation not found; refusing broad edit.')
+              pattern = re.compile(
+                  r'^[ \t]*function logoutEmployee\(\) \{\s*'
+                  r'currentEmployee = null;\s*'
+                  r'promotionsUnlocked = false;\s*'
+                  r"document\.getElementById\('employeeDashboard'\)\.classList\.remove\('active'\);\s*"
+                  r"document\.getElementById\('mainSite'\)\.style\.display = 'block';\s*"
+                  r"document\.getElementById\('mainNav'\)\.style\.display = 'flex';\s*"
+                  r'\}',
+                  re.M
+              )
+              s2, count = pattern.subn(new.rstrip(), s, count=1)
+              if count != 1:
+                  raise SystemExit(f'Expected exactly one legacy logoutEmployee implementation; found {count}.')
+              p.write_text(s2)
+              print('Employee logout patched.')
           PY
 
       - name: Install backend dependencies
@@ -89,26 +92,27 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re, subprocess, tempfile
+          import re, subprocess, tempfile, os
           html = Path('index.html').read_text()
           blocks = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', html, re.S | re.I)
           checked = 0
-          for i, block in enumerate(blocks):
+          for block in blocks:
               if not block.strip():
                   continue
-              tag_match = re.search(r'<script([^>]*)>' + re.escape(block[:0]), html, re.I)
-              # JSON-LD is the only non-JS inline script in this file; skip by content.
               if block.lstrip().startswith('{') and '"@context"' in block:
                   continue
               with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False) as f:
                   f.write(block)
                   name = f.name
-              subprocess.run(['node', '--check', name], check=True)
+              try:
+                  subprocess.run(['node', '--check', name], check=True)
+              finally:
+                  os.unlink(name)
               checked += 1
           print(f'Checked {checked} inline JavaScript block(s).')
           PY
 
-      - name: Verify logout and P0 authorization invariants
+      - name: Verify logout and authorization invariants
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -117,57 +121,46 @@ jobs:
           backend = Path('functions/index.js').read_text()
           rules = Path('database.rules.json').read_text()
 
-          assert 'async function logoutEmployee()' in html
-          logout_start = html.index('async function logoutEmployee()')
-          logout_slice = html[logout_start:logout_start + 1800]
+          start = html.index('async function logoutEmployee()')
+          logout = html[start:start+2000]
           for required in [
-              'await auth.signOut();',
-              'if (auth?.currentUser)',
-              'currentEmployee = null;',
-              'orders = [];',
-              'users = {};',
-              'employeeRoles = {};',
-              "document.getElementById('employeeDashboard')",
+              'currentEmployee = null;', 'orders = [];', 'users = {};', 'employeeRoles = {};',
+              'await auth.signOut();', "throw new Error('Firebase Authentication session is still active after sign-out.');",
               'updateAuthButton();'
           ]:
-              assert required in logout_slice, required
-
-          # Customer logout must remain backed by Firebase Auth.
+              assert required in logout, required
+          assert logout.index('currentEmployee = null;') < logout.index('await auth.signOut();')
           assert re.search(r'async function logout\(\).*?await auth\.signOut\(\);', html, re.S)
 
-          # Protected employee callables must still pass through server authorization.
           assert re.search(r'exports\.getAdminData\s*=.*?getEmployeeForRequest\(request,\s*1\)', backend, re.S)
           assert re.search(r'exports\.adminWrite\s*=.*?getEmployeeForRequest\(request,\s*minimumRole\)', backend, re.S)
           assert re.search(r'exports\.updateOrder\s*=.*?getEmployeeForRequest\(request,\s*1\)', backend, re.S)
           assert "if (!request.auth?.uid || !request.auth?.token?.email)" in backend
           assert "throw new HttpsError('unauthenticated'" in backend
           assert 'request.auth.token.email_verified !== true' in backend
-
-          # Direct database access remains closed for privileged paths.
           assert '"orders": {\n      ".read": false,\n      ".write": false' in rules
           assert '"employeeRoles": {\n      ".read": false,\n      ".write": false' in rules
           print('Logout and authorization invariants passed.')
           PY
 
-      - name: Simulate employee logout state transition
+      - name: Verify login and customer auth remain intact
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          import re
           html = Path('index.html').read_text()
-          start = html.index('async function logoutEmployee()')
-          # Ensure the security-critical sequence is present in source order.
-          s = html[start:start+1800]
-          assert s.index('currentEmployee = null;') < s.index('await auth.signOut();')
-          assert s.index('await auth.signOut();') < s.index('if (auth?.currentUser) {', s.index('await auth.signOut();') + 1)
-          assert 'throw new Error(\'Firebase Authentication session is still active after sign-out.\');' in s
-          print('Logout clears privileged state, awaits Firebase sign-out, and verifies the session is gone.')
+          assert html.count('auth.signInWithEmailAndPassword') >= 2
+          assert 'auth.createUserWithEmailAndPassword' in html
+          assert 'auth.sendPasswordResetEmail' in html
+          assert 'auth.signInWithCredential(googleCredential)' in html
+          assert 'firebase.auth.GoogleAuthProvider.credential(response.credential)' in html
+          assert 'getEmployeeProfile' in html
+          print('Employee re-login and customer authentication entry points remain present.')
           PY
 
       - name: Diff checks
         run: |
           git diff --check
-          git diff --stat
+          git diff -- index.html
 
       - name: Commit logout fix if needed
         run: |
@@ -183,5 +176,5 @@ jobs:
 
       - name: Verify committed diff hygiene
         run: |
-          git diff --check HEAD^ HEAD || true
+          git diff --check HEAD^ HEAD
           git status --short
