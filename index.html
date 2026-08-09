@@ -6536,7 +6536,7 @@
         function selectSavedAddress(addressId) {
             if (!currentUser || !currentUser.email) return;
             
-            const userData = users[currentUser.email];
+            const userData = currentUser?.uid ? users[currentUser.uid] : null;
             if (!userData || !userData.savedAddresses) return;
             
             const address = userData.savedAddresses.find(a => a.id === addressId);
