@@ -1,0 +1,46 @@
+name: P1 favicon optimization
+on:
+  push:
+    branches: [agent/p1-remediation]
+permissions:
+  contents: write
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - name: Install image optimizer
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick
+      - name: Generate KEM favicon derivatives
+        run: |
+          convert "icon enhanced.png" -resize 64x64 -strip -define png:compression-level=9 favicon-64.png
+          convert "icon enhanced.png" -resize 180x180 -strip -define png:compression-level=9 apple-touch-icon.png
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html'); s=p.read_text()
+          s=s.replace('<link rel="icon" type="image/png" href="icon enhanced.png">','<link rel="icon" type="image/png" href="favicon-64.png">',1)
+          s=s.replace('<link rel="apple-touch-icon" href="icon enhanced.png">','<link rel="apple-touch-icon" href="apple-touch-icon.png">',1)
+          s=s.replace('<link rel="shortcut icon" href="icon enhanced.png">','<link rel="shortcut icon" href="favicon-64.png">',1)
+          p.write_text(s)
+          PY
+      - name: Verify derivatives and P0/P1 source
+        run: |
+          test -s favicon-64.png
+          test -s apple-touch-icon.png
+          test $(wc -c < favicon-64.png) -lt 100000
+          test $(wc -c < apple-touch-icon.png) -lt 250000
+          identify favicon-64.png apple-touch-icon.png
+          grep -q 'href="favicon-64.png"' index.html
+          grep -q 'href="apple-touch-icon.png"' index.html
+          node --check functions/index.js
+          git diff --check
+      - name: Commit optimized assets
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html favicon-64.png apple-touch-icon.png
+          git commit -m 'Optimize favicon delivery'
+          git push origin HEAD:agent/p1-remediation
