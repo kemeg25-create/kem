@@ -1,0 +1,135 @@
+name: P0 employee logout fix v2
+
+on:
+  push:
+    branches:
+      - agent/p0-security-commerce
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Patch employee logout only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          p = Path('index.html')
+          s = p.read_text()
+          new = """        async function logoutEmployee() {
+              const dashboard = document.getElementById('employeeDashboard');
+              const mainSite = document.getElementById('mainSite');
+              const mainNav = document.getElementById('mainNav');
+
+              // Remove privileged UI and cached admin data immediately.
+              currentEmployee = null;
+              promotionsUnlocked = false;
+              orders = [];
+              users = {};
+              employeeRoles = {};
+              notifications = [];
+              unreadNotifications = 0;
+              if (dashboard) dashboard.classList.remove('active');
+              if (mainSite) mainSite.style.display = 'block';
+              if (mainNav) mainNav.style.display = 'flex';
+              updateNotificationBadge();
+
+              try {
+                  if (auth?.currentUser) {
+                      await auth.signOut();
+                  }
+                  if (auth?.currentUser) {
+                      throw new Error('Firebase Authentication session is still active after sign-out.');
+                  }
+                  currentUser = null;
+                  updateAuthButton();
+              } catch (error) {
+                  console.error('Employee logout failed:', error);
+                  alert('Unable to securely sign out. Please try again.');
+                  throw error;
+              }
+          }
+          """
+          if 'async function logoutEmployee()' in s and 'await auth.signOut();' in s[s.index('async function logoutEmployee()'):s.index('async function logoutEmployee()')+2000]:
+              print('Already patched.')
+          else:
+              pattern = re.compile(r"^[ \t]*function logoutEmployee\(\) \{.*?^[ \t]*\}", re.M | re.S)
+              matches = list(pattern.finditer(s))
+              # Select only the legacy function whose body contains the known dashboard teardown statements.
+              targets = [m for m in matches if "currentEmployee = null;" in m.group(0) and "employeeDashboard" in m.group(0) and "mainNav" in m.group(0)]
+              if len(targets) != 1:
+                  raise SystemExit(f'Expected one legacy employee logout target; found {len(targets)}.')
+              m = targets[0]
+              s = s[:m.start()] + new.rstrip() + s[m.end():]
+              p.write_text(s)
+              print('Employee logout patched.')
+          PY
+      - name: Install backend dependencies
+        working-directory: functions
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Backend syntax
+        run: node --check functions/index.js
+      - name: Inline JavaScript syntax
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess, tempfile, os
+          html = Path('index.html').read_text()
+          blocks = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', html, re.S | re.I)
+          checked=0
+          for block in blocks:
+              if not block.strip() or (block.lstrip().startswith('{') and '"@context"' in block):
+                  continue
+              with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False) as f:
+                  f.write(block); name=f.name
+              try: subprocess.run(['node','--check',name],check=True)
+              finally: os.unlink(name)
+              checked += 1
+          print('Checked', checked, 'inline JS blocks')
+          PY
+      - name: Security invariants
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          h=Path('index.html').read_text(); b=Path('functions/index.js').read_text(); r=Path('database.rules.json').read_text()
+          start=h.index('async function logoutEmployee()'); x=h[start:start+2200]
+          for q in ['currentEmployee = null;','orders = [];','users = {};','employeeRoles = {};','await auth.signOut();',"throw new Error('Firebase Authentication session is still active after sign-out.');",'updateAuthButton();']:
+              assert q in x,q
+          assert x.index('currentEmployee = null;') < x.index('await auth.signOut();')
+          assert re.search(r'async function logout\(\).*?await auth\.signOut\(\);',h,re.S)
+          for q in [r'exports\.getAdminData\s*=.*?getEmployeeForRequest\(request,\s*1\)',r'exports\.adminWrite\s*=.*?getEmployeeForRequest\(request,\s*minimumRole\)',r'exports\.updateOrder\s*=.*?getEmployeeForRequest\(request,\s*1\)']:
+              assert re.search(q,b,re.S),q
+          assert "if (!request.auth?.uid || !request.auth?.token?.email)" in b
+          assert 'request.auth.token.email_verified !== true' in b
+          assert '"orders": {\n      ".read": false,\n      ".write": false' in r
+          assert '"employeeRoles": {\n      ".read": false,\n      ".write": false' in r
+          assert h.count('auth.signInWithEmailAndPassword') >= 2
+          assert 'auth.createUserWithEmailAndPassword' in h
+          assert 'auth.sendPasswordResetEmail' in h
+          assert 'auth.signInWithCredential(googleCredential)' in h
+          print('Security/auth invariants passed')
+          PY
+      - name: Diff checks
+        run: |
+          git diff --check
+          git diff -- index.html
+      - name: Commit fix
+        run: |
+          if git diff --quiet -- index.html; then exit 0; fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Fix employee Firebase logout'
+          git push origin HEAD:agent/p0-security-commerce
+      - name: Committed diff check
+        run: git diff --check HEAD^ HEAD
