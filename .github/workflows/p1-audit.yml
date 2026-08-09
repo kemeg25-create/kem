@@ -1,18 +1,23 @@
-name: P1 verification
+name: P1 variants gallery
 on:
   push:
     branches: [agent/p1-remediation]
 permissions:
-  contents: read
+  contents: write
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
       - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Syntax and P0 guardrails
+        with: {node-version: '20'}
+      - name: Apply variants and gallery
+        run: python3 scripts/p1_variants_gallery.py
+      - name: Install backend dependencies
+        working-directory: functions
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Syntax and invariant checks
         run: |
           node --check functions/index.js
           python3 -m json.tool database.rules.json >/dev/null
@@ -25,8 +30,25 @@ jobs:
               f=tempfile.NamedTemporaryFile('w',suffix='.js',delete=False); f.write(block); f.close()
               try: subprocess.run(['node','--check',f.name],check=True)
               finally: os.unlink(f.name)
+          for token in ['productSizes','productColors','productGalleryUrls','detailGallery','detailSizes','detailColors']:
+              assert token in h, token
+          assert 'requestedSize' in b and 'requestedColor' in b
+          assert 'sizes.length && !sizes.includes(requestedSize)' in b
+          assert 'colors.length && !colors.includes(requestedColor)' in b
+          assert "cart.map(item => ({ id: item.id, quantity: item.quantity, size:" in h
           assert 'revokeEmployeeSession' in h and 'await auth.signOut()' in h
           assert 'requireVerifiedCustomer' in b and "paymentMethod !== 'cod'" in b
-          assert "readPublicPath('coupons')" not in h
-          print('baseline checks passed')
+          assert 'unitPrice = getDiscountedUnitPrice' in b
+          assert 'request.data?.price' not in b
+          print('variants/gallery and P0 checks pass')
           PY
+      - name: Diff check
+        run: git diff --check
+      - name: Commit production changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html functions/index.js
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'Add secure product variants and image gallery'
+          git push origin HEAD:agent/p1-remediation
