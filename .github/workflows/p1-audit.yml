@@ -13,7 +13,9 @@ jobs:
         with:
           node-version: '20'
       - name: Run P1 audit
-        run: python3 scripts/p1_audit.py
+        run: |
+          python3 scripts/p1_audit.py
+          python3 scripts/p1_context.py
       - name: Syntax checks
         run: |
           node --check functions/index.js
