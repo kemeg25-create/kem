@@ -53,7 +53,7 @@ function cleanMarkupText(value, maxLength = 500) {
 }
 
 function cleanImageSource(value) {
-  const source = cleanText(value, 5 * 1024 * 1024);
+  const source = cleanText(value, 8 * 1024 * 1024);
   if (!source) return '';
   if (/^https:\/\/[^\s"'<>]+$/i.test(source)) return source;
   if (/^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(source)) return source;
@@ -88,8 +88,9 @@ function sanitizeProducts(value) {
   for (const [key, product] of entries) {
     if (!product || typeof product !== 'object') continue;
     const idNumber = Math.floor(normalizeNumber(product.id));
+    if (idNumber < 1) continue;
     const safe = {
-      id: idNumber > 0 ? idNumber : cleanMarkupText(product.id, 80),
+      id: idNumber,
       name: cleanMarkupText(product.name, 120),
       category: cleanMarkupText(product.category, 100),
       description: cleanMarkupText(product.description, 2000),
@@ -355,15 +356,17 @@ exports.getAdminData = onCall(async (request) => {
     response.coupons = normalizeList(sanitizeCoupons(root.coupons));
   }
 
-  for (const [key, value] of Object.entries(root.users || {})) {
-    response.users[key] = {
-      email: cleanText(value.email, 254),
-      name: cleanText(value.name, 100),
-      phone: cleanPhone(value.phone),
-      orderHistory: Array.isArray(value.orderHistory) ? value.orderHistory.slice(-50) : [],
-      registeredDate: value.registeredDate || null,
-      lastLogin: value.lastLogin || null
-    };
+  if (ROLE_LEVEL[employee.role] >= 5) {
+    for (const [key, value] of Object.entries(root.users || {})) {
+      response.users[key] = {
+        email: cleanText(value.email, 254),
+        name: cleanText(value.name, 100),
+        phone: cleanPhone(value.phone),
+        orderHistory: Array.isArray(value.orderHistory) ? value.orderHistory.slice(-50) : [],
+        registeredDate: value.registeredDate || null,
+        lastLogin: value.lastLogin || null
+      };
+    }
   }
 
   return response;
@@ -442,8 +445,16 @@ exports.updateOrder = onCall(async (request) => {
 });
 
 exports.quoteOrder = onCall(async (request) => {
+  const couponCode = cleanText(request.data?.couponCode, 50);
+  if (couponCode) {
+    try {
+      await requireVerifiedCustomer(request);
+    } catch (error) {
+      throw new HttpsError('permission-denied', 'Coupon validation requires a verified account.');
+    }
+  }
   const snap = await db.ref('/').once('value');
-  const quote = calculateQuote(snap.val() || {}, request.data?.items, request.data?.couponCode);
+  const quote = calculateQuote(snap.val() || {}, request.data?.items, couponCode);
   return {
     subtotal: quote.subtotal,
     thresholdDiscount: quote.thresholdDiscount,
@@ -487,11 +498,33 @@ exports.createOrder = onCall(async (request) => {
   }
 
   let committedOrder = null;
+  let abortReason = null;
   const year = new Date().getUTCFullYear();
+  const orderRequestTime = Date.now();
 
   const transaction = await db.ref('/').transaction((root) => {
     root = root || {};
+    abortReason = null;
     const quote = calculateQuote(root, request.data?.items, request.data?.couponCode);
+
+    root.orders = root.orders || {};
+    root.security = root.security || {};
+    root.security.orderRate = root.security.orderRate || {};
+    const uid = authenticatedCustomer.uid;
+    const rateState = root.security.orderRate[uid] || {};
+    const lastOrderAt = Math.max(0, normalizeNumber(rateState.lastOrderAt));
+    if (lastOrderAt && orderRequestTime - lastOrderAt < 30000) {
+      abortReason = 'Please wait at least 30 seconds before placing another order.';
+      return;
+    }
+    const pendingOrders = Object.values(root.orders).filter((existingOrder) =>
+      existingOrder && existingOrder.customerUid === uid && ['pending', 'processing'].includes(String(existingOrder.status).toLowerCase())
+    ).length;
+    if (pendingOrders >= 5) {
+      abortReason = 'This account already has too many pending orders. Please contact KEM before placing another order.';
+      return;
+    }
+    root.security.orderRate[uid] = { lastOrderAt: orderRequestTime };
 
     root.counters = root.counters || {};
     root.counters.orderNumbers = root.counters.orderNumbers || {};
@@ -518,6 +551,7 @@ exports.createOrder = onCall(async (request) => {
     root.orders = root.orders || {};
     const order = {
       id: orderId,
+      customerUid: authenticatedCustomer.uid,
       customer: customer.name,
       email: customer.email,
       phone: customer.phone,
@@ -568,6 +602,7 @@ exports.createOrder = onCall(async (request) => {
   }, undefined, false);
 
   if (!transaction.committed || !committedOrder) {
+    if (abortReason) throw new HttpsError('failed-precondition', abortReason);
     throw new HttpsError('aborted', 'The order could not be committed because stock changed. Please review your cart and try again.');
   }
 

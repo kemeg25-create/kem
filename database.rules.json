@@ -88,6 +88,10 @@
     "counters": {
       ".read": false,
       ".write": false
+    },
+    "security": {
+      ".read": false,
+      ".write": false
     }
   }
 }
