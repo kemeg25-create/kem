@@ -1,0 +1,66 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "products": {
+      ".read": true,
+      ".write": false
+    },
+    "categories": {
+      ".read": true,
+      ".write": false
+    },
+    "announcements": {
+      ".read": true,
+      ".write": false
+    },
+    "productDiscounts": {
+      ".read": true,
+      ".write": false
+    },
+    "orderDiscounts": {
+      ".read": true,
+      ".write": false
+    },
+    "coupons": {
+      ".read": true,
+      ".write": false
+    },
+    "storeSettings": {
+      ".read": true,
+      ".write": false
+    },
+    "paymentMethods": {
+      ".read": true,
+      ".write": false
+    },
+    "socialLinks": {
+      ".read": true,
+      ".write": false
+    },
+
+    "users": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid",
+        "password": {
+          ".validate": false
+        }
+      }
+    },
+
+    "orders": {
+      ".read": false,
+      ".write": false
+    },
+    "employeeRoles": {
+      ".read": false,
+      ".write": false
+    },
+    "counters": {
+      ".read": false,
+      ".write": false
+    }
+  }
+}
