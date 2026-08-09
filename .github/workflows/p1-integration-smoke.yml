@@ -1,0 +1,108 @@
+name: P1 integration smoke
+on:
+  push:
+    branches:
+      - agent/p1-integration-validation
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Verify validation branch base and production files
+        run: |
+          git merge-base --is-ancestor 317cf982aa1ae0cb4f39550521b8899dba5f88d3 HEAD
+          git diff --exit-code 317cf982aa1ae0cb4f39550521b8899dba5f88d3 HEAD -- index.html functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
+      - name: Install emulator and browser tooling
+        run: |
+          npm --prefix functions install --ignore-scripts --no-audit --no-fund
+          npm init -y >/dev/null 2>&1
+          npm install --no-save --package-lock=false firebase-tools playwright >/dev/null
+          npx playwright install --with-deps chromium
+      - name: Prepare isolated emulator runtime
+        run: |
+          python3 validation/prepare_emulator.py
+          python3 -m json.tool firebase.json >/dev/null
+          node --check functions/index.js
+      - name: Start Firebase Emulator Suite
+        run: |
+          nohup npx firebase emulators:start --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO > /tmp/kem-emulator.log 2>&1 &
+          echo $! > /tmp/kem-emulator.pid
+          for i in $(seq 1 90); do
+            if curl -fsS http://127.0.0.1:5000/ >/dev/null 2>&1 && curl -fsS http://127.0.0.1:9099/ >/dev/null 2>&1; then
+              echo 'Emulators ready'
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/kem-emulator.log
+          exit 1
+      - name: Seed isolated emulator data
+        env:
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+          FIREBASE_DATABASE_EMULATOR_HOST: 127.0.0.1:9000
+          FIREBASE_STORAGE_EMULATOR_HOST: 127.0.0.1:9199
+          GCLOUD_PROJECT: demo-kem-validation
+        run: node validation/seed.cjs
+      - name: Run real browser and backend smoke tests
+        env:
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+          FIREBASE_DATABASE_EMULATOR_HOST: 127.0.0.1:9000
+          FIREBASE_STORAGE_EMULATOR_HOST: 127.0.0.1:9199
+          GCLOUD_PROJECT: demo-kem-validation
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          node validation/smoke.cjs
+      - name: Emulator logs on failure
+        if: failure()
+        run: |
+          echo '=== Firebase emulator log ==='
+          cat /tmp/kem-emulator.log || true
+          echo '=== firebase-debug.log ==='
+          cat firebase-debug.log || true
+      - name: Restore runtime-only patches and rerun P0/P1 guards
+        if: always()
+        run: |
+          git checkout -- index.html firebase.json
+          rm -f package.json package-lock.json firebase-debug.log database-debug.log ui-debug.log
+          rm -rf node_modules functions/node_modules functions/package-lock.json
+          node --check functions/index.js
+          python3 -m json.tool database.rules.json >/dev/null
+          python3 -m json.tool firebase.json >/dev/null
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re,subprocess,tempfile,os
+          h=Path('index.html').read_text(); b=Path('functions/index.js').read_text(); rules=json.loads(Path('database.rules.json').read_text())['rules']
+          blocks=re.findall(r'<script\s+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',h,re.S|re.I)
+          assert blocks
+          for body in blocks: json.loads(body)
+          for attrs, body in re.findall(r'<script([^>]*)>(.*?)</script>',h,re.S|re.I):
+              if 'application/ld+json' in attrs.lower() or not body.strip(): continue
+              f=tempfile.NamedTemporaryFile('w',suffix='.js',delete=False);f.write(body);f.close()
+              try: subprocess.run(['node','--check',f.name],check=True)
+              finally: os.unlink(f.name)
+          assert h.count("window.addEventListener('popstate'")==1
+          assert h.count("document.addEventListener('keydown', event => {")==1
+          assert 'exports.revokeEmployeeSession' in b and 'auth.revokeRefreshTokens' in b
+          assert 'requireVerifiedCustomer' in b and "paymentMethod !== 'cod'" in b
+          assert "db.ref('/').transaction" in b and 'product.stock = currentStock - item.quantity' in b
+          assert rules['orders']['.read'] is False and rules['orders']['.write'] is False
+          assert rules['employeeRoles']['.read'] is False and rules['coupons']['.read'] is False
+          assert 'request.data?.price' not in b
+          assert 'exports.getCustomerOrders' in b and 'exports.uploadProductImage' in b
+          print('P0/P1 guardrails passed after integration run')
+          PY
+          git diff --check
+          git diff --exit-code 317cf982aa1ae0cb4f39550521b8899dba5f88d3 HEAD -- index.html functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
