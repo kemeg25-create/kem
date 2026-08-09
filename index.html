@@ -4512,14 +4512,11 @@
             `;
         }
 
-        function saveSocialLinks() {
-            // Save to Firebase
-            saveToFirebase('socialLinks', socialLinks);
-            
-            renderFooterSocialLinks();
-            console.log('Social links saved:', socialLinks);
-            alert('✅ Social links saved successfully!');
+        async function saveSocialLinks() {
+            try{await saveToFirebase('socialLinks',socialLinks);renderFooterSocialLinks();alert('Social links saved successfully.');}
+            catch(error){console.error('Social link save failed:',error);alert(error?.message||'Unable to save social links.');}
         }
+
 
         function ensureProperUrl(url) {
             if (!url) return '#';
@@ -4571,6 +4568,8 @@
         // Update filterByCategory to work with new structure
 
 
+        function makeDashboardTablesResponsive() { document.querySelectorAll('.data-table').forEach(table=>{if(table.parentElement?.classList.contains('data-table-wrap'))return;const wrap=document.createElement('div');wrap.className='data-table-wrap';table.parentNode.insertBefore(wrap,table);wrap.appendChild(table);}); }
+
         window.addEventListener('DOMContentLoaded', async () => {
             // Initialize Firebase
             await initializeFirebase();
@@ -4582,6 +4581,7 @@
             renderCategoriesDropdown();
             renderShopFilters();
             renderFooterSocialLinks();
+            makeDashboardTablesResponsive();
             // Clear coupon on page refresh
             appliedCoupon = null;
             // Show active announcements to customers
@@ -4642,41 +4642,13 @@
             }
         }
 
-                async function showDashboard() {
-            if (!currentEmployee) return;
 
-            try {
-                await loadAdminData();
-            } catch (error) {
-                console.error('Unable to load secure employee data:', error);
-                alert('Unable to load the employee dashboard securely. Please try again.');
-                return;
-            }
 
-            document.getElementById('mainSite').style.display = 'none';
-            document.getElementById('mainNav').style.display = 'none';
-            document.getElementById('employeeDashboard').classList.add('active');
-            
-            // Get role level
-            const roleLevel = roleHierarchy[currentEmployee.role];
-            
-            // Show/hide promotions tab based on role (Senior and above)
-            const promotionsTab = document.querySelector('[onclick="switchTab(\'promotions\')"]');
-            if (promotionsTab) {
-                promotionsTab.style.display = roleLevel >= 3 ? 'inline-block' : 'none';
-            }
-
-            // Display employee info in dashboard header
-            const dashboardHeader = document.querySelector('.dashboard-header h1');
-            if (dashboardHeader) {
-                dashboardHeader.innerHTML = `Employee Dashboard <span style="font-size: 1rem; font-weight: 600; color: var(--accent); margin-left: 1rem;">${escapeHTML(currentEmployee.role)} • ${escapeHTML(currentEmployee.email)}</span>`;
-            }
-            
-            updateProductCategoryDropdown();
-            loadProducts();
-            loadOrders();
-            loadFooterSettings();
-            loadStoreSettings();
+        async function showDashboard() {
+            if(!currentEmployee)return; try{await loadAdminData();}catch(error){console.error('Unable to load secure employee data:',error);alert('Unable to load the employee dashboard securely.');return;}
+            document.getElementById('mainSite').style.display='none';document.getElementById('mainNav').style.display='none';document.getElementById('employeeDashboard').classList.add('active');
+            const roleLevel=roleHierarchy[currentEmployee.role]||0,special=currentEmployee.specialAccess||{}; const promo=document.getElementById('promotionsTabBtn'),settings=document.querySelector('.tab-btn[onclick="switchTab(\'settings\')"]'),employees=document.getElementById('employeesTabBtn'),security=document.getElementById('securityTabBtn'); if(promo)promo.style.display=(roleLevel>=3||special.promotions)?'inline-block':'none';if(settings)settings.style.display=(roleLevel>=3||special.settings)?'inline-block':'none';if(employees)employees.style.display=roleLevel===5?'inline-block':'none';if(security)security.style.display=roleLevel===5?'inline-block':'none';
+            const header=document.querySelector('.dashboard-header h1');if(header)header.innerHTML=`Employee Dashboard <span style="font-size:1rem;font-weight:600;color:var(--accent);margin-left:1rem;">${escapeHTML(currentEmployee.role)} • ${escapeHTML(currentEmployee.email)}</span>`; updateProductCategoryDropdown();loadProducts();loadOrders();updateInventoryOverview();updateSalesMetrics();if(roleLevel>=3||special.settings){loadFooterSettings();loadStoreSettings();loadAboutSection();}if(roleLevel===5)loadEmployees();
         }
 
         async function logoutEmployee() {
@@ -4980,21 +4952,9 @@
             bg: '#fafafa'
         };
         
-        let products = [
-            { id: 1, name: 'Oversized Tee - Black', category: 'Urban Core', description: 'Premium cotton oversized t-shirt in black', price: 899.00, stock: 89, status: 'Active', image: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="60" height="60"%3E%3Crect fill="%23000" width="60" height="60"/%3E%3C/svg%3E' },
-            { id: 2, name: 'Cargo Pants - Neon', category: 'Neon Nights', description: 'Tactical cargo pants with neon accents', price: 1499.00, stock: 67, status: 'Active', image: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="60" height="60"%3E%3Crect fill="%2300FF99" width="60" height="60"/%3E%3C/svg%3E' },
-            { id: 3, name: 'Hoodie - Urban', category: 'Urban Core', description: 'Heavyweight hoodie with embroidered logo', price: 1299.00, stock: 54, status: 'Active', image: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="60" height="60"%3E%3Crect fill="%23333" width="60" height="60"/%3E%3C/svg%3E' },
-            { id: 4, name: 'Track Jacket - Minimal', category: 'Minimal Edge', description: 'Sleek minimalist track jacket', price: 1699.00, stock: 32, status: 'Active', image: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="60" height="60"%3E%3Crect fill="%23fff" width="60" height="60"/%3E%3C/svg%3E' },
-            { id: 5, name: 'Bucket Hat - Neon', category: 'Neon Nights', description: 'Statement bucket hat in bright neon', price: 599.00, stock: 12, status: 'Active', image: 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="60" height="60"%3E%3Crect fill="%23FF3366" width="60" height="60"/%3E%3C/svg%3E' },
-        ];
+        let products = [];
 
-        let orders = [
-            { id: 'KEM-2025-001', customer: 'Alex Johnson', email: 'alex@email.com', date: '2025-02-13', items: [{product: 'Oversized Tee - Black', qty: 2, price: 899}], total: 1798.00, status: 'paid', notes: '' },
-            { id: 'KEM-2025-002', customer: 'Sam Rivera', email: 'sam@email.com', date: '2025-02-13', items: [{product: 'Cargo Pants - Neon', qty: 1, price: 1499}], total: 1499.00, status: 'fulfilled', notes: 'Express shipping' },
-            { id: 'KEM-2025-003', customer: 'Jordan Lee', email: 'jordan@email.com', date: '2025-02-12', items: [{product: 'Hoodie - Urban', qty: 1, price: 1299}, {product: 'Oversized Tee - Black', qty: 1, price: 899}], total: 2198.00, status: 'pending', notes: '' },
-            { id: 'KEM-2025-004', customer: 'Taylor Swift', email: 'taylor@email.com', date: '2025-02-12', items: [{product: 'Track Jacket - Minimal', qty: 2, price: 1699}], total: 3398.00, status: 'paid', notes: '' },
-            { id: 'KEM-2025-005', customer: 'Morgan Blake', email: 'morgan@email.com', date: '2025-02-11', items: [{product: 'Bucket Hat - Neon', qty: 3, price: 599}], total: 1797.00, status: 'cancelled', notes: 'Customer requested cancellation' },
-        ];
+        let orders = [];
 
         let nextProductId = 6;
         let nextOrderNum = 6;
@@ -5212,17 +5172,12 @@
             openProductForm(id);
         }
 
-        function deleteProduct(id) {
-            if (confirm('Are you sure you want to delete this product?')) {
-                products = products.filter(p => p.id !== id);
-                
-                // Save to Firebase
-                saveToFirebase('products', products);
-                
-                loadProducts();
-                updateInventoryOverview();
-            }
+        async function deleteProduct(id) {
+            if(!confirm('Are you sure you want to delete this product?'))return; const next=products.filter(p=>Number(p.id)!==Number(id));
+            try{await saveToFirebase('products',next);products=next;loadProducts();renderShopProducts();updateInventoryOverview();}
+            catch(error){console.error('Product delete failed:',error);alert(error?.message||'Unable to delete product.');}
         }
+
 
         // Order Management Functions
         function loadOrders() {
@@ -5587,26 +5542,12 @@
         }
 
         function updateProductCategoryDropdown() {
-            const dropdown = document.getElementById('productCategory');
-            if (!dropdown) return; // Safety check
-            
-            const currentValue = dropdown.value;
-            
-            // Clear and rebuild dropdown
-            dropdown.innerHTML = '<option value="">Select Category</option>';
-            
-            categories.forEach(category => {
-                const option = document.createElement('option');
-                option.value = category;
-                option.textContent = category;
-                dropdown.appendChild(option);
-            });
-            
-            // Restore selected value if it still exists
-            if (currentValue && categories.includes(currentValue)) {
-                dropdown.value = currentValue;
-            }
+            const dropdown=document.getElementById('productCategory'); if(!dropdown)return; const current=dropdown.value;
+            const names=[...new Set(categories.map(getCategoryName).filter(Boolean))]; dropdown.innerHTML='<option value="">Select Category</option>';
+            names.forEach(name=>{const option=document.createElement('option');option.value=name;option.textContent=name;dropdown.appendChild(option);});
+            if(current&&names.includes(current))dropdown.value=current;
         }
+
 
         // Footer Settings Functions
         function loadFooterSettings() {
@@ -5706,25 +5647,14 @@
             document.getElementById('bgColor').value = colorTheme.bg;
         }
 
-        function updateStoreSetting(settingName) {
-            const input = document.getElementById(settingName);
-            let value = input.value;
-            
-            // Convert to appropriate type
-            if (settingName === 'taxEnabled') {
-                value = value === 'true';
-            } else {
-                value = parseFloat(value);
-                if (isNaN(value) || value < 0) {
-                    alert('Please enter a valid positive number');
-                    return;
-                }
-            }
-            
-            storeSettings[settingName] = value;
-            updateStoreSettingsPreview();
-            alert('Setting updated successfully!');
+        async function updateStoreSetting(settingName) {
+            const input=document.getElementById(settingName); let value=input.value;
+            if(settingName==='taxEnabled') value=value==='true'; else {value=parseFloat(value);if(!Number.isFinite(value)||value<0){alert('Please enter a valid non-negative number');return;}}
+            const previous={...storeSettings}; const next={...storeSettings,[settingName]:value};
+            try{await saveToFirebase('storeSettings',next);storeSettings=next;updateStoreSettingsPreview();alert('Setting saved successfully.');}
+            catch(error){storeSettings=previous;loadStoreSettings();console.error('Setting save failed:',error);alert(error?.message||'Unable to save setting.');}
         }
+
 
         function updateStoreSettingsPreview() {
             document.getElementById('previewShippingFee').textContent = `EGP ${storeSettings.shippingFee.toFixed(2)}`;
@@ -7063,48 +6993,17 @@
             document.getElementById('announcementModal').classList.remove('active');
         }
 
-        function saveAnnouncement() {
-            try {
-                const id = document.getElementById('announcementId').value;
-                const data = {
-                    title: document.getElementById('announcementTitle').value,
-                    message: document.getElementById('announcementMessage').value,
-                    button: document.getElementById('announcementButton').value,
-                    link: document.getElementById('announcementLink').value,
-                    status: document.getElementById('announcementStatus').value
-                };
-                
-                if (id) {
-                    const index = announcements.findIndex(a => a.id == id);
-                    announcements[index] = { ...announcements[index], ...data };
-                } else {
-                    announcements.push({ id: nextAnnouncementId++, ...data });
-                }
-                
-                // Save to Firebase
-                saveToFirebase('announcements', announcements);
-                
-                loadAnnouncements();
-                closeAnnouncementModal();
-                showActiveAnnouncements();
-                alert('Announcement saved successfully!');
-            } catch (error) {
-                console.error('Error saving announcement:', error);
-                alert('Error saving announcement');
-            }
+        async function saveAnnouncement() {
+            const id=document.getElementById('announcementId').value; const data={title:document.getElementById('announcementTitle').value.trim(),message:document.getElementById('announcementMessage').value.trim(),button:document.getElementById('announcementButton').value.trim(),link:document.getElementById('announcementLink').value.trim(),status:document.getElementById('announcementStatus').value}; if(!data.title||!data.message){alert('Title and message are required.');return;} const next=announcements.map(x=>({...x})); if(id){const i=next.findIndex(x=>x.id==id);if(i<0)return;next[i]={...next[i],...data};}else next.push({id:nextAnnouncementId,...data}); try{await saveToFirebase('announcements',next);announcements=next;if(!id)nextAnnouncementId++;loadAnnouncements();closeAnnouncementModal();showActiveAnnouncements();alert('Announcement saved successfully.');}catch(error){console.error(error);alert(error?.message||'Unable to save announcement.');}
         }
+
 
         function editAnnouncement(id) {
             openAnnouncementModal(id);
         }
 
-        function deleteAnnouncement(id) {
-            announcements = announcements.filter(a => a.id !== id);
-            
-            // Save to Firebase
-            saveToFirebase('announcements', announcements);
-            loadAnnouncements();
-        }
+        async function deleteAnnouncement(id) { const next=announcements.filter(x=>x.id!==id); try{await saveToFirebase('announcements',next);announcements=next;loadAnnouncements();}catch(error){console.error(error);alert(error?.message||'Unable to delete announcement.');} }
+
 
         function showActiveAnnouncements() {
             const active = announcements.filter(a => a.status === 'active');
@@ -7194,50 +7093,17 @@
             document.getElementById('couponModal').classList.remove('active');
         }
 
-        function saveCoupon() {
-            try {
-                const id = document.getElementById('couponId').value;
-                const data = {
-                    code: document.getElementById('couponCode').value.toUpperCase(),
-                    type: document.getElementById('couponType').value,
-                    value: parseFloat(document.getElementById('couponValue').value),
-                    minOrder: parseFloat(document.getElementById('couponMinOrder').value) || 0,
-                    limit: parseInt(document.getElementById('couponLimit').value) || null,
-                    status: document.getElementById('couponStatus').value,
-                    used: 0
-                };
-                
-                if (id) {
-                    const index = coupons.findIndex(c => c.id == id);
-                    coupons[index] = { ...coupons[index], ...data };
-                } else {
-                    coupons.push({ id: nextCouponId++, ...data });
-                }
-                
-                // Save to Firebase
-                saveToFirebase('coupons', coupons);
-                
-                loadCoupons();
-                closeCouponModal();
-                alert('Coupon saved successfully!');
-            } catch (error) {
-                console.error('Error saving coupon:', error);
-                alert('Error saving coupon');
-            }
+        async function saveCoupon() {
+            const id=document.getElementById('couponId').value; const existing=id?coupons.find(c=>c.id==id):null; const data={code:document.getElementById('couponCode').value.trim().toUpperCase(),type:document.getElementById('couponType').value,value:parseFloat(document.getElementById('couponValue').value),minOrder:parseFloat(document.getElementById('couponMinOrder').value)||0,limit:parseInt(document.getElementById('couponLimit').value,10)||0,status:document.getElementById('couponStatus').value,used:existing?.used||0}; if(!data.code||!Number.isFinite(data.value)||data.value<0){alert('Enter a valid coupon code and value.');return;} const next=coupons.map(c=>({...c})); if(id){const i=next.findIndex(c=>c.id==id);if(i<0)return;next[i]={...next[i],...data};}else next.push({id:nextCouponId,...data}); try{await saveToFirebase('coupons',next);coupons=next;if(!id)nextCouponId++;loadCoupons();closeCouponModal();alert('Coupon saved successfully.');}catch(error){console.error(error);alert(error?.message||'Unable to save coupon.');}
         }
+
 
         function editCoupon(id) {
             openCouponModal(id);
         }
 
-        function deleteCoupon(id) {
-            coupons = coupons.filter(c => c.id !== id);
-            
-            // Save to Firebase
-            saveToFirebase('coupons', coupons);
-            
-            loadCoupons();
-        }
+        async function deleteCoupon(id) { const next=coupons.filter(c=>c.id!==id); try{await saveToFirebase('coupons',next);coupons=next;loadCoupons();}catch(error){console.error(error);alert(error?.message||'Unable to delete coupon.');} }
+
 
         // Product Discounts
         function loadProductDiscounts() {
@@ -7288,47 +7154,15 @@
             document.getElementById('productDiscountModal').classList.remove('active');
         }
 
-        function saveProductDiscount() {
-            try {
-                const id = document.getElementById('productDiscountId').value;
-                const data = {
-                    productId: parseInt(document.getElementById('discountProductId').value),
-                    type: document.getElementById('productDiscountType').value,
-                    value: parseFloat(document.getElementById('productDiscountValue').value),
-                    status: document.getElementById('productDiscountStatus').value
-                };
-                
-                if (id) {
-                    const index = productDiscounts.findIndex(d => d.id == id);
-                    productDiscounts[index] = { ...productDiscounts[index], ...data };
-                } else {
-                    productDiscounts.push({ id: nextProductDiscountId++, ...data });
-                }
-                
-                // Save to Firebase
-                saveToFirebase('productDiscounts', productDiscounts);
-                
-                loadProductDiscounts();
-                closeProductDiscountModal();
-                alert('Product discount saved successfully!');
-            } catch (error) {
-                console.error('Error saving product discount:', error);
-                alert('Error saving product discount');
-            }
-        }
+        async function saveProductDiscount() { const id=document.getElementById('productDiscountId').value; const data={productId:parseInt(document.getElementById('discountProductId').value,10),type:document.getElementById('productDiscountType').value,value:parseFloat(document.getElementById('productDiscountValue').value),status:document.getElementById('productDiscountStatus').value}; if(!data.productId||!Number.isFinite(data.value)||data.value<0){alert('Select a product and valid discount.');return;} const next=productDiscounts.map(d=>({...d})); if(id){const i=next.findIndex(d=>d.id==id);if(i<0)return;next[i]={...next[i],...data};}else next.push({id:nextProductDiscountId,...data}); try{await saveToFirebase('productDiscounts',next);productDiscounts=next;if(!id)nextProductDiscountId++;loadProductDiscounts();closeProductDiscountModal();renderShopProducts();alert('Product discount saved.');}catch(error){console.error(error);alert(error?.message||'Unable to save product discount.');} }
+
 
         function editProductDiscount(id) {
             openProductDiscountModal(id);
         }
 
-        function deleteProductDiscount(id) {
-            productDiscounts = productDiscounts.filter(d => d.id !== id);
-            
-            // Save to Firebase
-            saveToFirebase('productDiscounts', productDiscounts);
-            
-            loadProductDiscounts();
-        }
+        async function deleteProductDiscount(id) { const next=productDiscounts.filter(d=>d.id!==id); try{await saveToFirebase('productDiscounts',next);productDiscounts=next;loadProductDiscounts();renderShopProducts();}catch(error){console.error(error);alert(error?.message||'Unable to delete product discount.');} }
+
 
         // Threshold Discounts
         function loadThresholdDiscounts() {
@@ -7373,47 +7207,15 @@
             document.getElementById('thresholdDiscountModal').classList.remove('active');
         }
 
-        function saveThresholdDiscount() {
-            try {
-                const id = document.getElementById('thresholdDiscountId').value;
-                const data = {
-                    threshold: parseFloat(document.getElementById('thresholdAmount').value),
-                    type: document.getElementById('thresholdDiscountType').value,
-                    value: parseFloat(document.getElementById('thresholdDiscountValue').value),
-                    status: document.getElementById('thresholdDiscountStatus').value
-                };
-                
-                if (id) {
-                    const index = thresholdDiscounts.findIndex(d => d.id == id);
-                    thresholdDiscounts[index] = { ...thresholdDiscounts[index], ...data };
-                } else {
-                    thresholdDiscounts.push({ id: nextThresholdDiscountId++, ...data });
-                }
-                
-                // Save to Firebase
-                saveToFirebase('orderDiscounts', thresholdDiscounts);
-                
-                loadThresholdDiscounts();
-                closeThresholdDiscountModal();
-                alert('Threshold discount saved successfully!');
-            } catch (error) {
-                console.error('Error saving threshold discount:', error);
-                alert('Error saving threshold discount');
-            }
-        }
+        async function saveThresholdDiscount() { const id=document.getElementById('thresholdDiscountId').value; const data={threshold:parseFloat(document.getElementById('thresholdAmount').value),type:document.getElementById('thresholdDiscountType').value,value:parseFloat(document.getElementById('thresholdDiscountValue').value),status:document.getElementById('thresholdDiscountStatus').value}; if(!Number.isFinite(data.threshold)||data.threshold<0||!Number.isFinite(data.value)||data.value<0){alert('Enter valid threshold values.');return;} const next=thresholdDiscounts.map(d=>({...d})); if(id){const i=next.findIndex(d=>d.id==id);if(i<0)return;next[i]={...next[i],...data};}else next.push({id:nextThresholdDiscountId,...data}); try{await saveToFirebase('orderDiscounts',next);thresholdDiscounts=next;if(!id)nextThresholdDiscountId++;loadThresholdDiscounts();closeThresholdDiscountModal();alert('Threshold discount saved.');}catch(error){console.error(error);alert(error?.message||'Unable to save threshold discount.');} }
+
 
         function editThresholdDiscount(id) {
             openThresholdDiscountModal(id);
         }
 
-        function deleteThresholdDiscount(id) {
-            thresholdDiscounts = thresholdDiscounts.filter(d => d.id !== id);
-            
-            // Save to Firebase
-            saveToFirebase('orderDiscounts', thresholdDiscounts);
-            
-            loadThresholdDiscounts();
-        }
+        async function deleteThresholdDiscount(id) { const next=thresholdDiscounts.filter(d=>d.id!==id); try{await saveToFirebase('orderDiscounts',next);thresholdDiscounts=next;loadThresholdDiscounts();}catch(error){console.error(error);alert(error?.message||'Unable to delete threshold discount.');} }
+
 
         // Employee Management Functions
         let passwordMode = 'firebase-auth';
@@ -7538,20 +7340,8 @@
             document.getElementById('addEmployeeModal').classList.add('active');
         }
 
-        function deleteEmployee(email) {
-            if (email === 'kem.eg25@gmail.com') {
-                alert('Cannot delete the CEO account');
-                return;
-            }
+        async function deleteEmployee(email) { if(email==='kem.eg25@gmail.com'){alert('Cannot delete the CEO account');return;} const next={...employeeRoles}; delete next[email]; try{await saveToFirebase('employeeRoles',next);employeeRoles=next;loadEmployees();}catch(error){console.error(error);alert(error?.message||'Unable to delete employee access.');} }
 
-            delete employeeRoles[email];
-            
-            // Save to Firebase
-            saveToFirebase('employeeRoles', employeeRoles);
-            
-            loadEmployees();
-            console.log('Employee deleted');
-        }
 
         // Security Center Functions
         let promotionsPasscodeMode = 'universal';
@@ -7678,40 +7468,7 @@
         }
 
         // Employee dashboard data is fetched only after server-authorized authentication.
-        async function showDashboard() {
-            if (!currentEmployee) return;
 
-            document.getElementById('mainSite').style.display = 'none';
-            document.getElementById('mainNav').style.display = 'none';
-            document.getElementById('employeeDashboard').classList.add('active');
-
-            const roleLevel = roleHierarchy[currentEmployee.role] || 0;
-            const specialAccess = currentEmployee.specialAccess || {};
-            const promotionsBtn = document.getElementById('promotionsTabBtn');
-            const settingsBtn = document.querySelector('.tab-btn[onclick="switchTab(\'settings\')"]');
-            const employeesBtn = document.getElementById('employeesTabBtn');
-            const securityBtn = document.getElementById('securityTabBtn');
-            if (promotionsBtn) promotionsBtn.style.display = (roleLevel >= 3 || specialAccess.promotions) ? 'inline-block' : 'none';
-            if (settingsBtn) settingsBtn.style.display = (roleLevel >= 3 || specialAccess.settings) ? 'inline-block' : 'none';
-            if (employeesBtn) employeesBtn.style.display = roleLevel === 5 ? 'inline-block' : 'none';
-            if (securityBtn) securityBtn.style.display = roleLevel === 5 ? 'inline-block' : 'none';
-
-            const dashboardHeader = document.querySelector('.dashboard-header h1');
-            if (dashboardHeader) {
-                dashboardHeader.innerHTML = `Employee Dashboard <span style="font-size: 1rem; font-weight: 600; color: var(--accent); margin-left: 1rem;">${escapeHTML(currentEmployee.role)} • ${escapeHTML(currentEmployee.email)}</span>`;
-            }
-
-            await loadAdminData();
-            updateProductCategoryDropdown();
-            loadProducts();
-            loadOrders();
-            if (roleLevel >= 3 || specialAccess.settings) {
-                loadFooterSettings();
-                loadStoreSettings();
-                loadAboutSection();
-            }
-            if (roleLevel === 5) loadEmployees();
-        }
 
                 // Close auth modal on outside click
         document.addEventListener('DOMContentLoaded', function() {
