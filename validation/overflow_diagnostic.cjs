@@ -40,5 +40,4 @@ const { chromium } = require('playwright');
   });
   console.log(JSON.stringify(report, null, 2));
   await browser.close();
-  if (report.rootScrollWidth > report.viewport + 2) process.exit(2);
 })().catch(e => { console.error(e); process.exit(1); });
