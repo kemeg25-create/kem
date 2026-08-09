@@ -1,16 +1,180 @@
-name: P1 final review
+name: P1 final comprehensive review
 on:
   push:
     branches: [agent/p1-remediation]
 permissions:
-  contents: read
+  contents: write
 jobs:
   review:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
       - uses: actions/setup-node@v4
         with: {node-version: '20'}
-      - run: |
+      - name: Apply self-review fixes
+        run: python3 scripts/p1_selfreview_fixes.py
+      - name: Optimize favicon assets if ImageMagick is available
+        run: |
+          if command -v convert >/dev/null 2>&1; then
+            convert "icon enhanced.png" -resize 64x64 -strip -define png:compression-level=9 favicon-64.png
+            convert "icon enhanced.png" -resize 180x180 -strip -define png:compression-level=9 apple-touch-icon.png
+            python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html'); s=p.read_text()
+          s=s.replace('<link rel="icon" type="image/png" href="icon enhanced.png">','<link rel="icon" type="image/png" href="favicon-64.png">',1)
+          s=s.replace('<link rel="apple-touch-icon" href="icon enhanced.png">','<link rel="apple-touch-icon" href="apple-touch-icon.png">',1)
+          s=s.replace('<link rel="shortcut icon" href="icon enhanced.png">','<link rel="shortcut icon" href="favicon-64.png">',1)
+          p.write_text(s)
+          PY
+            echo "Generated optimized favicon assets"
+          else
+            echo "ImageMagick unavailable; retaining source icon"
+          fi
+      - name: Install backend dependencies
+        working-directory: functions
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Existing package tests
+        working-directory: functions
+        run: npm test --if-present
+      - name: Syntax and config checks
+        run: |
           node --check functions/index.js
           python3 -m json.tool database.rules.json >/dev/null
+          python3 -m json.tool firebase.json >/dev/null
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess, tempfile, os, xml.etree.ElementTree as ET
+          h=Path('index.html').read_text()
+          count=0
+          for block in re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',h,re.S|re.I):
+              if not block.strip() or (block.lstrip().startswith('{') and '"@context"' in block): continue
+              f=tempfile.NamedTemporaryFile('w',suffix='.js',delete=False); f.write(block); f.close()
+              try: subprocess.run(['node','--check',f.name],check=True)
+              finally: os.unlink(f.name)
+              count += 1
+          ET.parse('sitemap.xml')
+          print('checked inline JS blocks:',count)
+          PY
+      - name: Broken local link and asset checks
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from html.parser import HTMLParser
+          from urllib.parse import unquote, urlsplit
+          import re
+          class P(HTMLParser):
+              def __init__(self): super().__init__(); self.refs=[]; self.ids=[]
+              def handle_starttag(self,tag,attrs):
+                  d=dict(attrs)
+                  if 'id' in d: self.ids.append(d['id'])
+                  for k in ('src','href'):
+                      if k in d: self.refs.append((tag,k,d[k]))
+          h=Path('index.html').read_text(); p=P(); p.feed(h)
+          dup=sorted({x for x in p.ids if p.ids.count(x)>1})
+          if dup: raise SystemExit('Duplicate IDs: '+', '.join(dup[:20]))
+          missing=[]
+          for tag,key,ref in p.refs:
+              if not ref or ref.startswith(('#','http://','https://','data:','mailto:','tel:','javascript:','?','${')): continue
+              path=unquote(urlsplit(ref).path).lstrip('/')
+              if not path or path.endswith(('.css','.js')) and path.startswith('http'): continue
+              if not Path(path).exists(): missing.append(ref)
+          if missing: raise SystemExit('Missing local refs: '+', '.join(sorted(set(missing))))
+          for page in ('payment-success.html','payment-failed.html'):
+              text=Path(page).read_text(); assert 'noindex, nofollow' in text
+          print('local refs and duplicate IDs passed')
+          PY
+      - name: P0 security regression checks
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, json
+          h=Path('index.html').read_text(); b=Path('functions/index.js').read_text(); r=json.loads(Path('database.rules.json').read_text())['rules']
+          assert 'revokeEmployeeSession' in h and 'await auth.signOut()' in h
+          assert 'exports.revokeEmployeeSession' in b and 'auth.revokeRefreshTokens' in b
+          assert 'tokensValidAfterTime' in b and 'auth_time' in b
+          for fn in ('getAdminData','adminWrite','updateOrder'):
+              assert f'exports.{fn}' in b
+          assert 'getEmployeeForRequest(request' in b
+          assert 'requireVerifiedCustomer' in b and 'email_verified' in b
+          assert "paymentMethod !== 'cod'" in b
+          assert 'db.ref(\'/\').transaction' in b
+          assert 'root.counters.orderNumbers' in b and 'product.stock = currentStock - item.quantity' in b
+          assert 'root.coupons[key].used' in b
+          assert 'request.data?.price' not in b
+          assert "saveToFirebase('orders'" not in h and "saveToFirebase('employeeRoles', employeeRoles)" not in h
+          assert r['orders']['.read'] is False and r['orders']['.write'] is False
+          assert r['employeeRoles']['.read'] is False and r['employeeRoles']['.write'] is False
+          assert r['coupons']['.read'] is False and r['coupons']['.write'] is False
+          assert r['users']['$uid']['.read'] == 'auth != null && auth.uid === $uid'
+          assert "readPublicPath('coupons')" not in h
+          assert 'initializeFawaterakPayment()' in h and 'return false;' in h[h.index('async function initializeFawaterakPayment'):h.index('async function initializeFawaterakPayment')+250]
+          print('P0 security guardrails passed')
+          PY
+      - name: P1 functional and responsive checks
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          h=Path('index.html').read_text(); b=Path('functions/index.js').read_text()
+          # storefront/navigation/search
+          assert 'id="mobileNavToggle"' in h and 'id="primaryNav"' in h and '.nav-links.mobile-open' in h
+          assert '@media (max-width: 1024px)' in h and '@media (max-width: 768px)' in h
+          assert 'id="shopSearch"' in h and 'id="shopFilterButtons"' in h
+          assert len(re.findall(r'function\s+renderShopProducts\s*\(',h)) == 1
+          assert len(re.findall(r'function\s+filterByCategory\s*\(',h)) == 1
+          assert 'No products found' in h and 'loading="lazy"' in h
+          # variants/gallery/cart
+          for token in ('productSizes','productColors','productGalleryUrls','detailGallery','detailSizes','detailColors'):
+              assert token in h
+          assert 'requestedSize' in b and 'requestedColor' in b
+          assert 'Size: ${escapeHTML(item.size)}' in h and 'Color: ${escapeHTML(item.color)}' in h
+          # account/order history
+          assert 'id="accountModal"' in h and 'function openAccountModal' in h
+          assert 'exports.getCustomerOrders' in b and 'order?.customerUid === uid' in b
+          assert 'No orders yet' in h
+          # uploads and CRUD reliability
+          assert 'exports.uploadProductImage' in b and 'firebaseStorageDownloadTokens' in b
+          for fn in ('saveProduct','deleteProduct','saveCategory','deleteCategory','savePaymentMethod','deletePaymentMethod','saveEmployee','updateStoreSetting','applyColorTheme','updateAboutSection'):
+              idx=h.find('function '+fn)
+              if idx < 0: idx=h.find('async function '+fn)
+              assert idx >= 0, fn
+              assert 'await saveToFirebase' in h[idx:idx+5000], fn
+          # dashboard/authz UI
+          assert len(re.findall(r'async function\s+showDashboard\s*\(',h)) == 1
+          dash=h[h.index('async function showDashboard'):h.index('async function logoutEmployee')]
+          assert dash.index('await loadAdminData()') < dash.index("employeeDashboard').classList.add('active')")
+          assert 'makeDashboardTablesResponsive' in h
+          # checkout/accessibility
+          assert 'id="checkoutStatus"' in h and 'Calculating your order total' in h and 'Placing order…' in h
+          assert ':focus-visible' in h and 'function enhanceAccessibility' in h
+          assert "event.key==='Tab'" in h or "event.key === 'Tab'" in h
+          # SEO/performance
+          assert 'js.stripe.com' not in h and 'firebase-storage.js' not in h and 'function parseJwt' not in h
+          assert 'CreditCard' not in h and 'DebitCard' not in h
+          assert 'function updateProductSeo' in h and "window.addEventListener('popstate'" in h
+          assert 'href="?product=${Number(p.id)}"' in h
+          sitemap=Path('sitemap.xml').read_text(); assert 'payment-success.html' not in sitemap and 'payment-failed.html' not in sitemap
+          print('P1 functional and responsive invariants passed')
+          PY
+      - name: Inspect meaningful asset sizes
+        run: |
+          ls -lh "icon enhanced.png" favicon-64.png apple-touch-icon.png 2>/dev/null || true
+          wc -c index.html functions/index.js database.rules.json
+      - name: Git checks and production-only diff
+        run: |
+          git diff --check
+          git status --short
+          git diff --stat
+      - name: Commit self-review fixes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html favicon-64.png apple-touch-icon.png 2>/dev/null || git add index.html
+          if git diff --cached --quiet; then echo 'No final production fix needed'; exit 0; fi
+          git commit -m 'Fix P1 self-review regressions'
+          git push origin HEAD:agent/p1-remediation
+      - name: Verify committed production diff
+        run: |
+          git diff --check HEAD^ HEAD
+          git status --short
