@@ -1,7 +1,7 @@
 name: P1 audit
 on:
   push:
-    branches: [agent/p0-security-commerce]
+    branches: [agent/p1-remediation]
 permissions:
   contents: read
 jobs:
