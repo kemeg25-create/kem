@@ -118,4 +118,5 @@ async function ensureUser(uid, email, emailVerified = true, displayName = '') {
 
   await db.ref('/').set(seed);
   console.log('Seeded isolated auth/database emulator data');
+  process.exit(0);
 })().catch((error) => { console.error(error); process.exit(1); });
