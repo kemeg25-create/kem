@@ -4677,31 +4677,47 @@
         }
 
         async function logoutEmployee() {
-    const dashboard = document.getElementById('employeeDashboard');
-    const mainSite = document.getElementById('mainSite');
-    const mainNav = document.getElementById('mainNav');
-    currentEmployee = null;
-    promotionsUnlocked = false;
-    orders = [];
-    users = {};
-    employeeRoles = {};
-    notifications = [];
-    unreadNotifications = 0;
-    if (dashboard) dashboard.classList.remove('active');
-    if (mainSite) mainSite.style.display = 'block';
-    if (mainNav) mainNav.style.display = 'flex';
-    updateNotificationBadge();
-    try {
-        if (auth?.currentUser) await auth.signOut();
-        if (auth?.currentUser) throw new Error('Firebase Authentication session is still active after sign-out.');
-        currentUser = null;
-        updateAuthButton();
-    } catch (error) {
-        console.error('Employee logout failed:', error);
-        alert('Unable to securely sign out. Please try again.');
-        throw error;
-    }
-}
+              const dashboard = document.getElementById('employeeDashboard');
+              const mainSite = document.getElementById('mainSite');
+              const mainNav = document.getElementById('mainNav');
+              currentEmployee = null;
+              promotionsUnlocked = false;
+              orders = [];
+              users = {};
+              employeeRoles = {};
+              notifications = [];
+              unreadNotifications = 0;
+              if (dashboard) dashboard.classList.remove('active');
+              if (mainSite) mainSite.style.display = 'block';
+              if (mainNav) mainNav.style.display = 'flex';
+              updateNotificationBadge();
+
+              let revokeError = null;
+              try {
+                  if (auth?.currentUser && cloudFunctions) {
+                      const revokeEmployeeSession = cloudFunctions.httpsCallable('revokeEmployeeSession');
+                      await revokeEmployeeSession();
+                  }
+              } catch (error) {
+                  revokeError = error;
+                  console.error('Employee server-session revocation failed:', error);
+              }
+
+              try {
+                  if (auth?.currentUser) await auth.signOut();
+                  if (auth?.currentUser) throw new Error('Firebase Authentication session is still active after sign-out.');
+                  currentUser = null;
+                  updateAuthButton();
+              } catch (error) {
+                  console.error('Employee logout failed:', error);
+                  alert('Unable to securely sign out. Please try again.');
+                  throw error;
+              }
+
+              if (revokeError) {
+                  alert('You are signed out locally, but server-session revocation could not be confirmed. Sign in again before using employee tools.');
+              }
+          }
 
         // Smooth Scrolling
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
@@ -4833,12 +4849,11 @@
         }
 
         async function loadPublicData() {
-            const [productsData, categoriesData, announcementsData, couponsData, productDiscountsData,
+            const [productsData, categoriesData, announcementsData, productDiscountsData,
                 orderDiscountsData, storeSettingsData, paymentMethodsData, socialLinksData] = await Promise.all([
                 readPublicPath('products'),
                 readPublicPath('categories'),
                 readPublicPath('announcements'),
-                readPublicPath('coupons'),
                 readPublicPath('productDiscounts'),
                 readPublicPath('orderDiscounts'),
                 readPublicPath('storeSettings'),
@@ -4849,7 +4864,6 @@
             if (productsData) products = firebaseList(productsData);
             if (categoriesData) categories = firebaseList(categoriesData);
             if (announcementsData) announcements = firebaseList(announcementsData);
-            if (couponsData) coupons = firebaseList(couponsData);
             if (productDiscountsData) productDiscounts = firebaseList(productDiscountsData);
             if (orderDiscountsData) thresholdDiscounts = firebaseList(orderDiscountsData);
             if (storeSettingsData) storeSettings = storeSettingsData;
@@ -4868,7 +4882,6 @@
                 ['products', data => { products = firebaseList(data); renderShopProducts(); }],
                 ['categories', data => { categories = firebaseList(data); renderCategoriesDropdown(); }],
                 ['announcements', data => { announcements = firebaseList(data); }],
-                ['coupons', data => { coupons = firebaseList(data); }],
                 ['productDiscounts', data => { productDiscounts = firebaseList(data); renderShopProducts(); }],
                 ['orderDiscounts', data => { thresholdDiscounts = firebaseList(data); }],
                 ['storeSettings', data => { storeSettings = data || storeSettings; }],
@@ -4890,6 +4903,7 @@
             const response = await getAdminData();
             orders = firebaseList(response.data.orders);
             users = response.data.users || {};
+            if (Array.isArray(response.data.coupons)) coupons = response.data.coupons;
             employeeRoles = {};
             Object.values(response.data.employeeRoles || {}).forEach(profile => {
                 if (profile?.email) employeeRoles[profile.email] = profile;
@@ -6132,24 +6146,39 @@
             `;
         }
 
-        function applyCouponCode() {
+        async function applyCouponCode() {
             const code = document.getElementById('couponInput').value.trim().toUpperCase();
             if (!code) return;
-
-            const coupon = coupons.find(c => c.code === code && c.status === 'active');
-            
-            if (!coupon) {
-                alert('Invalid coupon code');
+            if (!auth?.currentUser) {
+                alert('Please sign in and verify your email before applying a coupon.');
+                openAuthModal();
                 return;
             }
-
-            if (coupon.limit && (coupon.used || 0) >= coupon.limit) {
-                alert('This coupon has reached its usage limit');
-                return;
+            try {
+                await auth.currentUser.reload();
+                await auth.currentUser.getIdToken(true);
+                if (!auth.currentUser.emailVerified) {
+                    alert('Please verify your email before applying a coupon.');
+                    return;
+                }
+                const quoteOrder = cloudFunctions.httpsCallable('quoteOrder');
+                const response = await quoteOrder({
+                    items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
+                    couponCode: code
+                });
+                if (!response.data.coupon) throw new Error('Invalid coupon code.');
+                appliedCoupon = {
+                    code: response.data.coupon,
+                    type: 'fixed',
+                    value: Number(response.data.couponDiscount) || 0,
+                    minOrder: 0,
+                    serverValidated: true
+                };
+                renderCart();
+            } catch (error) {
+                console.error('Coupon validation failed:', error);
+                alert(error?.message || 'Invalid coupon code.');
             }
-
-            appliedCoupon = coupon;
-            renderCart();
         }
 
         function removeCouponCode() {
@@ -6159,6 +6188,7 @@
 
         function updateCartQuantity(index, change) {
             const item = cart[index];
+            if (appliedCoupon) appliedCoupon = null;
             const product = products.find(p => p.id === item.id);
             
             const newQuantity = item.quantity + change;
@@ -6592,6 +6622,18 @@
         }
 
         async function placeOrder() {
+            if (!auth?.currentUser) {
+                alert('Please sign in before placing an order.');
+                openAuthModal();
+                return;
+            }
+            await auth.currentUser.reload();
+            await auth.currentUser.getIdToken(true);
+            if (!auth.currentUser.emailVerified) {
+                alert('Please verify your email before placing an order.');
+                return;
+            }
+
             const form = document.getElementById('checkoutForm');
             if (!form.checkValidity()) {
                 form.reportValidity();

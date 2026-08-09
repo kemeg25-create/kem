@@ -2,7 +2,6 @@
   "rules": {
     ".read": false,
     ".write": false,
-
     "products": {
       ".read": true,
       ".write": false
@@ -24,7 +23,7 @@
       ".write": false
     },
     "coupons": {
-      ".read": true,
+      ".read": false,
       ".write": false
     },
     "storeSettings": {
@@ -39,17 +38,45 @@
       ".read": true,
       ".write": false
     },
-
     "users": {
       "$uid": {
         ".read": "auth != null && auth.uid === $uid",
         ".write": "auth != null && auth.uid === $uid",
         "password": {
           ".validate": false
+        },
+        "email": {
+          ".validate": "newData.isString() && newData.val() === auth.token.email"
+        },
+        "name": {
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 120)"
+        },
+        "phone": {
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 30)"
+        },
+        "picture": {
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 2048)"
+        },
+        "googleId": {
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 200)"
+        },
+        "savedAddresses": {
+          ".validate": "!newData.exists() || newData.hasChildren()"
+        },
+        "orderHistory": {
+          ".validate": "newData.val() === data.val()"
+        },
+        "registeredDate": {
+          ".validate": "!data.exists() || newData.val() === data.val()"
+        },
+        "lastLogin": {
+          ".validate": "!newData.exists() || (newData.isString() && newData.val().length <= 40)"
+        },
+        "$other": {
+          ".validate": false
         }
       }
     },
-
     "orders": {
       ".read": false,
       ".write": false

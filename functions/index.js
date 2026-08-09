@@ -47,12 +47,106 @@ function cleanPhone(value) {
   return cleanText(value, 30).replace(/[^0-9+()\-\s]/g, '');
 }
 
+
+function cleanMarkupText(value, maxLength = 500) {
+  return cleanText(value, maxLength).replace(/[<>"']/g, '');
+}
+
+function cleanImageSource(value) {
+  const source = cleanText(value, 5 * 1024 * 1024);
+  if (!source) return '';
+  if (/^https:\/\/[^\s"'<>]+$/i.test(source)) return source;
+  if (/^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(source)) return source;
+  if (/^[a-z0-9_./() -]+\.(?:png|jpe?g|webp|gif)(?:\?[^"'<>]*)?$/i.test(source)) return source;
+  return '';
+}
+
+function sanitizeNestedAdminData(value, key = '', depth = 0) {
+  if (depth > 8) return null;
+  if (Array.isArray(value)) return value.map((item) => sanitizeNestedAdminData(item, key, depth + 1));
+  if (value && typeof value === 'object') {
+    const result = {};
+    for (const [childKey, childValue] of Object.entries(value)) {
+      result[childKey] = sanitizeNestedAdminData(childValue, childKey, depth + 1);
+    }
+    return result;
+  }
+  if (typeof value !== 'string') return value;
+  const lowerKey = String(key).toLowerCase();
+  if (['image', 'icon', 'iconurl'].includes(lowerKey)) return cleanImageSource(value);
+  if (['url', 'link'].includes(lowerKey)) {
+    const url = cleanText(value, 2048).replace(/[<>"']/g, '');
+    return /^https:\/\//i.test(url) ? url : '';
+  }
+  return cleanMarkupText(value, 5000);
+}
+
+function sanitizeProducts(value) {
+  const isArray = Array.isArray(value);
+  const entries = isArray ? value.map((item, index) => [String(index), item]) : Object.entries(value || {});
+  const result = isArray ? [] : {};
+  for (const [key, product] of entries) {
+    if (!product || typeof product !== 'object') continue;
+    const idNumber = Math.floor(normalizeNumber(product.id));
+    const safe = {
+      id: idNumber > 0 ? idNumber : cleanMarkupText(product.id, 80),
+      name: cleanMarkupText(product.name, 120),
+      category: cleanMarkupText(product.category, 100),
+      description: cleanMarkupText(product.description, 2000),
+      price: Math.max(0, normalizeNumber(product.price)),
+      stock: Math.max(0, Math.floor(normalizeNumber(product.stock))),
+      status: product.status === 'Active' ? 'Active' : 'Inactive',
+      image: cleanImageSource(product.image)
+    };
+    if (isArray) result.push(safe); else result[key] = safe;
+  }
+  return result;
+}
+
+function sanitizeCoupons(value) {
+  const isArray = Array.isArray(value);
+  const entries = isArray ? value.map((item, index) => [String(index), item]) : Object.entries(value || {});
+  const result = isArray ? [] : {};
+  for (const [key, coupon] of entries) {
+    if (!coupon || typeof coupon !== 'object') continue;
+    const safe = {
+      id: Math.max(0, Math.floor(normalizeNumber(coupon.id))),
+      code: cleanText(coupon.code, 50).toUpperCase().replace(/[^A-Z0-9_-]/g, ''),
+      type: coupon.type === 'percentage' ? 'percentage' : 'fixed',
+      value: Math.max(0, normalizeNumber(coupon.value)),
+      minOrder: Math.max(0, normalizeNumber(coupon.minOrder)),
+      limit: Math.max(0, Math.floor(normalizeNumber(coupon.limit))),
+      used: Math.max(0, Math.floor(normalizeNumber(coupon.used))),
+      status: coupon.status === 'active' ? 'active' : 'inactive'
+    };
+    if (isArray) result.push(safe); else result[key] = safe;
+  }
+  return result;
+}
+
+async function requireVerifiedCustomer(request) {
+  if (!request.auth?.uid || !request.auth?.token?.email) {
+    throw new HttpsError('unauthenticated', 'Sign in before placing an order.');
+  }
+  if (request.auth.token.email_verified !== true) {
+    throw new HttpsError('permission-denied', 'Verify your email before placing an order.');
+  }
+  return { uid: request.auth.uid, email: cleanEmail(request.auth.token.email) };
+}
+
 async function getEmployeeForRequest(request, minimumRole = 1) {
   if (!request.auth?.uid || !request.auth?.token?.email) {
     throw new HttpsError('unauthenticated', 'Employee authentication is required.');
   }
   if (request.auth.token.email_verified !== true) {
     throw new HttpsError('permission-denied', 'A verified employee email is required.');
+  }
+
+  const userRecord = await auth.getUser(request.auth.uid);
+  const tokensValidAfterMs = userRecord.tokensValidAfterTime ? Date.parse(userRecord.tokensValidAfterTime) : 0;
+  const authTimeMs = Math.max(0, normalizeNumber(request.auth.token.auth_time)) * 1000;
+  if (tokensValidAfterMs && authTimeMs < tokensValidAfterMs) {
+    throw new HttpsError('unauthenticated', 'This employee session has been revoked. Sign in again.');
   }
 
   const email = String(request.auth.token.email).toLowerCase();
@@ -212,6 +306,13 @@ exports.getEmployeeProfile = onCall(async (request) => {
   return getEmployeeForRequest(request, 1);
 });
 
+
+exports.revokeEmployeeSession = onCall(async (request) => {
+  const employee = await getEmployeeForRequest(request, 1);
+  await auth.revokeRefreshTokens(employee.uid);
+  return { ok: true };
+});
+
 exports.getAdminData = onCall(async (request) => {
   const employee = await getEmployeeForRequest(request, 1);
   const snap = await db.ref('/').once('value');
@@ -235,7 +336,8 @@ exports.getAdminData = onCall(async (request) => {
   const response = {
     orders: normalizeList(root.orders),
     employeeRoles: {},
-    users: {}
+    users: {},
+    coupons: []
   };
 
   if (ROLE_LEVEL[employee.role] >= 5) {
@@ -247,6 +349,10 @@ exports.getAdminData = onCall(async (request) => {
         specialAccess: value.specialAccess || {}
       };
     }
+  }
+
+  if (ROLE_LEVEL[employee.role] >= 3 || employee.specialAccess?.promotions) {
+    response.coupons = normalizeList(sanitizeCoupons(root.coupons));
   }
 
   for (const [key, value] of Object.entries(root.users || {})) {
@@ -282,9 +388,18 @@ exports.adminWrite = onCall(async (request) => {
 
   const minimumRole = permissions[path];
   if (!minimumRole) throw new HttpsError('permission-denied', 'This data path cannot be written from the client.');
-  await getEmployeeForRequest(request, minimumRole);
+  const employee = await getEmployeeForRequest(request, 1);
+  const roleLevel = ROLE_LEVEL[employee.role] || 0;
+  const specialAllowed = ['announcements', 'coupons', 'productDiscounts', 'orderDiscounts'].includes(path) && employee.specialAccess?.promotions;
+  const settingsAllowed = ['categories', 'storeSettings', 'paymentMethods', 'socialLinks'].includes(path) && employee.specialAccess?.settings;
+  if (roleLevel < minimumRole && !specialAllowed && !settingsAllowed) {
+    throw new HttpsError('permission-denied', 'You do not have permission to modify this data.');
+  }
 
   let dataToSave = data;
+  if (path === 'products') dataToSave = sanitizeProducts(data);
+  else if (path === 'coupons') dataToSave = sanitizeCoupons(data);
+  else if (path !== 'employeeRoles') dataToSave = sanitizeNestedAdminData(data);
   if (path === 'employeeRoles' && data && typeof data === 'object') {
     dataToSave = {};
     for (const [email, profile] of Object.entries(data)) {
@@ -310,7 +425,7 @@ exports.updateOrder = onCall(async (request) => {
   const snap = await db.ref(`orders/${orderId}`).once('value');
   if (!snap.exists()) throw new HttpsError('not-found', 'Order not found.');
 
-  const allowedStatuses = new Set(['pending', 'paid', 'fulfilled', 'cancelled']);
+  const allowedStatuses = new Set(['pending', 'processing', 'shipped', 'delivered', 'paid', 'fulfilled', 'cancelled']);
   const status = cleanText(request.data?.status, 30).toLowerCase();
   if (!allowedStatuses.has(status)) throw new HttpsError('invalid-argument', 'Invalid order status.');
 
@@ -344,14 +459,20 @@ exports.quoteOrder = onCall(async (request) => {
 });
 
 exports.createOrder = onCall(async (request) => {
+  const authenticatedCustomer = await requireVerifiedCustomer(request);
   const paymentMethod = cleanText(request.data?.paymentMethod, 40).toLowerCase();
   if (paymentMethod !== 'cod') {
     throw new HttpsError('failed-precondition', 'Online payment is temporarily disabled until server-side payment verification is configured.');
   }
 
+  const submittedEmail = cleanEmail(request.data?.customer?.email);
+  if (submittedEmail !== authenticatedCustomer.email) {
+    throw new HttpsError('permission-denied', 'Order email must match the authenticated account.');
+  }
+
   const customer = {
     name: cleanText(request.data?.customer?.name, 120),
-    email: cleanEmail(request.data?.customer?.email),
+    email: authenticatedCustomer.email,
     phone: cleanPhone(request.data?.customer?.phone),
     address: cleanText(request.data?.customer?.address, 250),
     houseNumber: cleanText(request.data?.customer?.houseNumber, 80),
@@ -425,9 +546,9 @@ exports.createOrder = onCall(async (request) => {
 
     root.orders[orderId] = order;
 
-    if (request.auth?.uid) {
+    {
       root.users = root.users || {};
-      const uid = request.auth.uid;
+      const uid = authenticatedCustomer.uid;
       const existing = root.users[uid] || {};
       const orderHistory = Array.isArray(existing.orderHistory) ? existing.orderHistory.slice(-49) : [];
       orderHistory.push(orderId);
