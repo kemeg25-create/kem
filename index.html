@@ -4647,8 +4647,16 @@
             }
         }
 
-                function showDashboard() {
+                async function showDashboard() {
             if (!currentEmployee) return;
+
+            try {
+                await loadAdminData();
+            } catch (error) {
+                console.error('Unable to load secure employee data:', error);
+                alert('Unable to load the employee dashboard securely. Please try again.');
+                return;
+            }
 
             document.getElementById('mainSite').style.display = 'none';
             document.getElementById('mainNav').style.display = 'none';
