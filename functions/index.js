@@ -51,6 +51,9 @@ async function getEmployeeForRequest(request, minimumRole = 1) {
   if (!request.auth?.uid || !request.auth?.token?.email) {
     throw new HttpsError('unauthenticated', 'Employee authentication is required.');
   }
+  if (request.auth.token.email_verified !== true) {
+    throw new HttpsError('permission-denied', 'A verified employee email is required.');
+  }
 
   const email = String(request.auth.token.email).toLowerCase();
   const snap = await db.ref(`employeeRoles/${sanitizeEmail(email)}`).once('value');
@@ -60,6 +63,9 @@ async function getEmployeeForRequest(request, minimumRole = 1) {
     throw new HttpsError('permission-denied', 'You do not have permission to perform this action.');
   }
 
+  if (Object.prototype.hasOwnProperty.call(employee, 'password')) {
+    await snap.ref.child('password').remove();
+  }
   return {
     uid: request.auth.uid,
     email,
@@ -210,6 +216,21 @@ exports.getAdminData = onCall(async (request) => {
   const employee = await getEmployeeForRequest(request, 1);
   const snap = await db.ref('/').once('value');
   const root = snap.val() || {};
+
+  if (ROLE_LEVEL[employee.role] >= 5) {
+    const cleanup = {};
+    for (const [key, value] of Object.entries(root.employeeRoles || {})) {
+      if (value && Object.prototype.hasOwnProperty.call(value, 'password')) {
+        cleanup[`employeeRoles/${key}/password`] = null;
+      }
+    }
+    for (const [key, value] of Object.entries(root.users || {})) {
+      if (value && Object.prototype.hasOwnProperty.call(value, 'password')) {
+        cleanup[`users/${key}/password`] = null;
+      }
+    }
+    if (Object.keys(cleanup).length) await db.ref('/').update(cleanup);
+  }
 
   const response = {
     orders: normalizeList(root.orders),
