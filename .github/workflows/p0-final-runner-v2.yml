@@ -1,0 +1,125 @@
+name: P0 final runner v2
+on:
+  push:
+    branches:
+      - agent/p0-security-commerce
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Correct temporary hardener matcher
+        run: python3 scripts/fix_hardener.py
+      - name: Apply P0 hardening
+        run: python3 scripts/p0_harden.py
+      - name: Install backend dependencies
+        working-directory: functions
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Check backend syntax
+        run: node --check functions/index.js
+      - name: Check database rules JSON
+        run: python3 -m json.tool database.rules.json >/dev/null
+      - name: Check inline JavaScript syntax
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess, tempfile, os
+          html=Path('index.html').read_text()
+          count=0
+          for block in re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',html,re.S|re.I):
+              if not block.strip() or (block.lstrip().startswith('{') and '"@context"' in block):
+                  continue
+              f=tempfile.NamedTemporaryFile('w',suffix='.js',delete=False)
+              f.write(block); f.close()
+              try: subprocess.run(['node','--check',f.name],check=True)
+              finally: os.unlink(f.name)
+              count += 1
+          print(f'checked {count} inline JS blocks')
+          PY
+      - name: Verify P0 threat invariants
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          h=Path('index.html').read_text()
+          b=Path('functions/index.js').read_text()
+          r=json.loads(Path('database.rules.json').read_text())['rules']
+          assert 'This employee session has been revoked' in b
+          assert 'exports.revokeEmployeeSession' in b
+          assert 'auth.revokeRefreshTokens(employee.uid)' in b
+          lo=h[h.index('async function logoutEmployee()'):][:3500]
+          assert "httpsCallable('revokeEmployeeSession')" in lo
+          assert 'await auth.signOut();' in lo
+          for q in ['currentEmployee = null;','orders = [];','users = {};','employeeRoles = {};']:
+              assert q in lo,q
+          for fn in ['getAdminData','adminWrite','updateOrder','createEmployeeResetLink']:
+              pos=b.index('exports.'+fn)
+              assert 'getEmployeeForRequest(request' in b[pos:pos+3500],fn
+          assert h.count('auth.signInWithEmailAndPassword') >= 2
+          assert 'auth.createUserWithEmailAndPassword' in h
+          assert 'auth.sendPasswordResetEmail' in h
+          assert 'firebase.auth.GoogleAuthProvider.credential(response.credential)' in h
+          assert 'auth.signInWithCredential(googleCredential)' in h
+          assert re.search(r'async function logoutUser\(\).*?await auth\.signOut\(\);',h,re.S)
+          create=b[b.index('exports.createOrder'):]
+          assert 'await requireVerifiedCustomer(request)' in create[:1200]
+          assert 'Order email must match the authenticated account.' in create[:4000]
+          assert 'const uid = authenticatedCustomer.uid;' in create
+          assert "paymentMethod !== 'cod'" in create
+          assert "db.ref('/').transaction" in create
+          assert 'root.counters.orderNumbers[year]' in create
+          assert 'product.stock = currentStock - item.quantity' in create
+          assert 'root.coupons[key].used' in create
+          assert 'request.data?.totals' not in create
+          assert 'requested?.price' not in b
+          assert r['coupons']['.read'] is False
+          assert "readPublicPath('coupons')" not in h
+          assert "['coupons', data =>" not in h
+          assert 'const coupon = coupons.find(c => c.code === code' not in h
+          cf=h[h.index('async function applyCouponCode()'):h.index('function removeCouponCode')]
+          assert "httpsCallable('quoteOrder')" in cf
+          u=r['users']['$uid']
+          assert u['.read']=='auth != null && auth.uid === $uid'
+          assert u['.write']=='auth != null && auth.uid === $uid'
+          assert 'auth.token.email' in u['email']['.validate']
+          assert u['orderHistory']['.validate']=='newData.val() === data.val()'
+          assert u['password']['.validate'] is False
+          assert u['$other']['.validate'] is False
+          assert r['orders']['.read'] is False and r['orders']['.write'] is False
+          assert r['employeeRoles']['.read'] is False and r['employeeRoles']['.write'] is False
+          assert r['counters']['.read'] is False and r['counters']['.write'] is False
+          assert "if (path === 'products') dataToSave = sanitizeProducts(data);" in b
+          assert 'cleanMarkupText(product.name' in b
+          assert 'cleanImageSource(product.image)' in b
+          for status in ['pending','processing','shipped','delivered','paid','fulfilled','cancelled']:
+              assert status in b[b.index('const allowedStatuses'):b.index('const allowedStatuses')+300]
+          assert 'escapeHTML(order.customer)' in h
+          assert 'escapeHTML(item.product)' in h
+          assert 'escapeHTML(notif.message)' in h
+          assert 'escapeHTML(notif.title)' in h
+          print('P0 adversarial invariants passed')
+          PY
+      - name: Diff check
+        run: |
+          git diff --check
+          git diff --stat
+      - name: Commit production changes
+        run: |
+          if git diff --quiet -- index.html functions/index.js database.rules.json; then
+            echo no-production-change
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html functions/index.js database.rules.json
+          git commit -m 'Complete P0 security hardening'
+          git push origin HEAD:agent/p0-security-commerce
+      - name: Verify committed diff
+        run: git diff --check HEAD^ HEAD
