@@ -3406,7 +3406,7 @@
                         <div id="uploadPlaceholder">
                             <div class="upload-icon">📷</div>
                             <div class="upload-text">Click to upload product image</div>
-                            <div class="upload-text" style="font-size: 0.75rem; margin-top: 0.5rem;">JPG, PNG, or WEBP (Max 5MB)</div>
+                            <div class="upload-text" style="font-size: 0.75rem; margin-top: 0.5rem;">JPG, PNG, or WEBP (Max 5MB · securely uploaded)</div>
                         </div>
                         <img id="imagePreview" class="image-preview" alt="Product preview">
                     </div>
@@ -5180,39 +5180,20 @@
             modal.classList.add('active');
         }
 
-        function handleImageUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            // Check file size (max 5MB)
-            if (file.size > 5 * 1024 * 1024) {
-                alert('Image size must be less than 5MB');
-                return;
-            }
-            
-            // Check file type
-            if (!file.type.startsWith('image/')) {
-                alert('Please upload an image file');
-                return;
-            }
-            
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const imageData = e.target.result;
-                document.getElementById('productImageData').value = imageData;
-                
-                const imagePreview = document.getElementById('imagePreview');
-                const uploadPlaceholder = document.getElementById('uploadPlaceholder');
-                const changeBtn = document.getElementById('changeImageBtn');
-                
-                imagePreview.src = imageData;
-                imagePreview.classList.add('active');
-                uploadPlaceholder.style.display = 'none';
-                changeBtn.style.display = 'block';
-                document.getElementById('imageUploadArea').classList.add('has-image');
-            };
-            reader.readAsDataURL(file);
+        async function handleImageUpload(event) {
+            const file=event.target.files?.[0]; if(!file)return;
+            const allowed=['image/jpeg','image/png','image/webp'];
+            if(!allowed.includes(file.type)){alert('Please select a JPG, PNG, or WEBP image.');event.target.value='';return;}
+            if(file.size>5*1024*1024){alert('Image must be 5MB or smaller.');event.target.value='';return;}
+            const placeholder=document.getElementById('uploadPlaceholder'); const preview=document.getElementById('imagePreview'); const change=document.getElementById('changeImageBtn');
+            const original=placeholder.innerHTML; placeholder.innerHTML='<div class="upload-icon">⏳</div><div class="upload-text">Uploading image…</div>';
+            try {
+                const base64=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onerror=()=>reject(reader.error);reader.onload=()=>resolve(String(reader.result).split(',')[1]||'');reader.readAsDataURL(file);});
+                const upload=cloudFunctions.httpsCallable('uploadProductImage'); const response=await upload({base64,contentType:file.type}); const url=response.data?.url; if(!url)throw new Error('Upload completed without a file URL.');
+                document.getElementById('productImageData').value=url; preview.src=url; preview.classList.add('active'); placeholder.style.display='none'; change.style.display='block'; document.getElementById('imageUploadArea').classList.add('has-image');
+            } catch(error) { console.error('Product image upload failed:',error); placeholder.innerHTML=original; placeholder.style.display='block'; alert(error?.message||'Unable to upload image.'); event.target.value=''; }
         }
+
 
         function closeProductForm() {
             document.getElementById('productModal').classList.remove('active');

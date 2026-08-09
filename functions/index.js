@@ -2,6 +2,8 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { initializeApp } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
 const { getDatabase } = require('firebase-admin/database');
+const { getStorage } = require('firebase-admin/storage');
+const { randomUUID } = require('crypto');
 
 initializeApp();
 
@@ -422,6 +424,24 @@ exports.adminWrite = onCall(async (request) => {
 
   await db.ref(path).set(dataToSave);
   return { ok: true };
+});
+
+exports.uploadProductImage = onCall(async (request) => {
+  await getEmployeeForRequest(request, 1);
+  const contentType = cleanText(request.data?.contentType, 80).toLowerCase();
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(contentType)) throw new HttpsError('invalid-argument', 'Only JPG, PNG, or WEBP images are allowed.');
+  const encoded = cleanText(request.data?.base64, 8 * 1024 * 1024);
+  if (!encoded || !/^[A-Za-z0-9+/=]+$/.test(encoded)) throw new HttpsError('invalid-argument', 'Invalid image data.');
+  const buffer = Buffer.from(encoded, 'base64');
+  if (!buffer.length || buffer.length > 5 * 1024 * 1024) throw new HttpsError('invalid-argument', 'Image must be 5 MB or smaller.');
+  const ext = contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg';
+  const bucketName = process.env.FIREBASE_STORAGE_BUCKET || `${process.env.GCLOUD_PROJECT}.firebasestorage.app`;
+  const bucket = getStorage().bucket(bucketName);
+  const token = randomUUID();
+  const path = `products/${Date.now()}-${randomUUID()}.${ext}`;
+  await bucket.file(path).save(buffer, { resumable: false, metadata: { contentType, cacheControl: 'public,max-age=31536000,immutable', metadata: { firebaseStorageDownloadTokens: token } } });
+  const url = `https://firebasestorage.googleapis.com/v0/b/${encodeURIComponent(bucket.name)}/o/${encodeURIComponent(path)}?alt=media&token=${token}`;
+  return { url };
 });
 
 exports.updateOrder = onCall(async (request) => {
