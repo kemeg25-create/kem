@@ -43,7 +43,6 @@ normal_blocks = []
 for attrs, body in script_pattern.findall(h):
     if re.search(r'type\s*=\s*["\']application/ld\+json["\']', attrs, re.I):
         continue
-    # External script elements have no inline code.
     if 'src=' in attrs.lower() and not body.strip():
         continue
     if not body.strip():
@@ -120,7 +119,7 @@ for token in (
     'function renderShopProducts',
     'function filterByCategory',
     'function renderCart',
-    'function openCheckout',
+    'async function checkout()',
     'function openAccountModal',
     'id="checkoutStatus"',
     ':focus-visible',
