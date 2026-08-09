@@ -4676,13 +4676,32 @@
             loadStoreSettings();
         }
 
-        function logoutEmployee() {
-            currentEmployee = null;
-            promotionsUnlocked = false;
-            document.getElementById('employeeDashboard').classList.remove('active');
-            document.getElementById('mainSite').style.display = 'block';
-            document.getElementById('mainNav').style.display = 'flex';
-        }
+        async function logoutEmployee() {
+    const dashboard = document.getElementById('employeeDashboard');
+    const mainSite = document.getElementById('mainSite');
+    const mainNav = document.getElementById('mainNav');
+    currentEmployee = null;
+    promotionsUnlocked = false;
+    orders = [];
+    users = {};
+    employeeRoles = {};
+    notifications = [];
+    unreadNotifications = 0;
+    if (dashboard) dashboard.classList.remove('active');
+    if (mainSite) mainSite.style.display = 'block';
+    if (mainNav) mainNav.style.display = 'flex';
+    updateNotificationBadge();
+    try {
+        if (auth?.currentUser) await auth.signOut();
+        if (auth?.currentUser) throw new Error('Firebase Authentication session is still active after sign-out.');
+        currentUser = null;
+        updateAuthButton();
+    } catch (error) {
+        console.error('Employee logout failed:', error);
+        alert('Unable to securely sign out. Please try again.');
+        throw error;
+    }
+}
 
         // Smooth Scrolling
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
