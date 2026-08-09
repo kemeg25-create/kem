@@ -97,8 +97,13 @@ function sanitizeProducts(value) {
       price: Math.max(0, normalizeNumber(product.price)),
       stock: Math.max(0, Math.floor(normalizeNumber(product.stock))),
       status: product.status === 'Active' ? 'Active' : 'Inactive',
-      image: cleanImageSource(product.image)
+      image: cleanImageSource(product.image),
+      images: normalizeList(product.images).map(cleanImageSource).filter(Boolean).slice(0, 6),
+      sizes: normalizeList(product.sizes).map((v) => cleanMarkupText(v, 40)).filter(Boolean).slice(0, 12),
+      colors: normalizeList(product.colors).map((v) => cleanMarkupText(v, 40)).filter(Boolean).slice(0, 12)
     };
+    if (!safe.images.length && safe.image) safe.images = [safe.image];
+    if (!safe.image && safe.images.length) safe.image = safe.images[0];
     if (isArray) result.push(safe); else result[key] = safe;
   }
   return result;
@@ -223,15 +228,14 @@ function calculateQuote(root, requestedItems, couponCode) {
       throw new HttpsError('failed-precondition', `Only ${stock} of ${cleanText(product.name, 100)} are available.`);
     }
 
+    const requestedSize = cleanText(requested?.size, 40);
+    const requestedColor = cleanText(requested?.color, 40);
+    const sizes = normalizeList(product.sizes).map((v) => cleanText(v, 40));
+    const colors = normalizeList(product.colors).map((v) => cleanText(v, 40));
+    if (sizes.length && !sizes.includes(requestedSize)) throw new HttpsError('failed-precondition', `Choose a valid size for ${cleanText(product.name, 100)}.`);
+    if (colors.length && !colors.includes(requestedColor)) throw new HttpsError('failed-precondition', `Choose a valid color for ${cleanText(product.name, 100)}.`);
     const unitPrice = getDiscountedUnitPrice(product, productDiscounts);
-    normalizedItems.push({
-      storageKey,
-      id: product.id,
-      name: cleanText(product.name, 120),
-      quantity,
-      unitPrice,
-      lineTotal: unitPrice * quantity
-    });
+    normalizedItems.push({ storageKey, id: product.id, name: cleanText(product.name, 120), quantity, size: sizes.length ? requestedSize : '', color: colors.length ? requestedColor : '', unitPrice, lineTotal: unitPrice * quantity });
   }
 
   const subtotal = normalizedItems.reduce((sum, item) => sum + item.lineTotal, 0);
@@ -561,7 +565,9 @@ exports.createOrder = onCall(async (request) => {
         productId: item.id,
         product: item.name,
         qty: item.quantity,
-        price: item.unitPrice
+        price: item.unitPrice,
+        size: item.size || '',
+        color: item.color || ''
       })),
       subtotal: quote.subtotal,
       thresholdDiscount: quote.thresholdDiscount,

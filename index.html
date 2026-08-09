@@ -221,6 +221,14 @@
         .shop-tools { max-width:1400px; margin:0 auto 2rem; display:grid; gap:1rem; }
         .shop-search { width:min(100%,560px); margin:auto; padding:.9rem 1rem; border:2px solid var(--border); font:inherit; background:white; }
         .shop-filters { display:flex; justify-content:center; gap:.75rem; flex-wrap:wrap; }
+        .product-gallery-thumbs { display:flex; gap:.6rem; flex-wrap:wrap; margin-top:.75rem; }
+        .product-gallery-thumb { width:68px; height:68px; object-fit:cover; border:2px solid var(--border); background:white; }
+        .product-gallery-thumb.active { border-color:var(--accent); }
+        .variant-group { margin:1rem 0; }
+        .variant-group-label { display:block; font-weight:700; margin-bottom:.5rem; }
+        .variant-options { display:flex; gap:.5rem; flex-wrap:wrap; }
+        .variant-option { min-width:44px; min-height:44px; padding:.55rem .8rem; border:2px solid var(--border); background:white; font-weight:600; }
+        .variant-option.selected { border-color:var(--primary); background:var(--primary); color:white; }
         :focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
         .data-table-wrap { width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
 
@@ -3428,6 +3436,22 @@
                     <input type="number" id="productStock" min="0" required>
                 </div>
                 <div class="form-group">
+                    <label for="productSizes">Available Sizes</label>
+                    <input type="text" id="productSizes" placeholder="XS, S, M, L, XL">
+                    <p style="font-size:.8rem;color:#666;margin-top:.4rem;">Comma-separated; leave blank if size does not apply.</p>
+                </div>
+                <div class="form-group">
+                    <label for="productColors">Available Colors</label>
+                    <input type="text" id="productColors" placeholder="Black, White, Sand">
+                    <p style="font-size:.8rem;color:#666;margin-top:.4rem;">Comma-separated; leave blank if color does not apply.</p>
+                </div>
+                <div class="form-group">
+                    <label for="productGalleryUrls">Additional Image URLs</label>
+                    <textarea id="productGalleryUrls" rows="3" placeholder="One HTTPS image URL per line"></textarea>
+                    <p style="font-size:.8rem;color:#666;margin-top:.4rem;">Up to five additional images.</p>
+                </div>
+
+                <div class="form-group">
                     <label>Status</label>
                     <select id="productStatus" required>
                         <option value="Active">Active</option>
@@ -3801,13 +3825,14 @@
     </div>
 
     <!-- Product Detail Modal -->
-    <div class="product-detail-modal" id="productDetailModal">
+    <div class="product-detail-modal" id="productDetailModal" role="dialog" aria-modal="true" aria-labelledby="detailName" aria-hidden="true">
         <div class="product-detail-content">
-            <button class="close-modal" onclick="closeProductDetail()" style="position: absolute; top: 1rem; right: 1rem; z-index: 1;">×</button>
+            <button type="button" class="close-modal" onclick="closeProductDetail()" aria-label="Close product details" style="position: absolute; top: 1rem; right: 1rem; z-index: 1;">×</button>
             
             <div class="product-detail-grid">
                 <div>
                     <img id="detailImage" class="product-detail-image" src="" alt="">
+                    <div class="product-gallery-thumbs" id="detailGallery"></div>
                 </div>
                 <div class="product-detail-info">
                     <div class="product-detail-category" id="detailCategory"></div>
@@ -3815,6 +3840,8 @@
                     <div class="product-detail-price" id="detailPrice"></div>
                     <div class="product-detail-description" id="detailDescription"></div>
                     <div class="product-detail-stock" id="detailStock"></div>
+                    <div class="variant-group" id="detailSizesGroup" style="display:none;"><span class="variant-group-label">Size</span><div class="variant-options" id="detailSizes"></div></div>
+                    <div class="variant-group" id="detailColorsGroup" style="display:none;"><span class="variant-group-label">Color</span><div class="variant-options" id="detailColors"></div></div>
                     
                     <div class="quantity-selector">
                         <button onclick="decreaseQuantity()">-</button>
@@ -4978,6 +5005,8 @@
         let shopCategoryFilter = 'all';
         let shopSearchTerm = '';
         let currentProductDetail = null;
+        let currentProductSelection = { size: '', color: '' };
+        let lastModalFocus = null;
 
         // User Authentication
         let currentUser = null;
@@ -5109,7 +5138,10 @@
                 document.getElementById('productPrice').value = product.price;
                 document.getElementById('productStock').value = product.stock;
                 document.getElementById('productStatus').value = product.status;
-                document.getElementById('productImageData').value = product.image;
+                document.getElementById('productImageData').value = product.image || product.images?.[0] || '';
+                document.getElementById('productSizes').value = Array.isArray(product.sizes) ? product.sizes.join(', ') : '';
+                document.getElementById('productColors').value = Array.isArray(product.colors) ? product.colors.join(', ') : '';
+                document.getElementById('productGalleryUrls').value = Array.isArray(product.images) ? product.images.slice(1).join('\n') : '';
                 
                 // Show existing image
                 if (product.image) {
@@ -5169,38 +5201,13 @@
             document.getElementById('productForm').reset();
         }
 
-        function saveProduct(event) {
-            event.preventDefault();
-            
-            const id = document.getElementById('productId').value;
-            const imageData = document.getElementById('productImageData').value;
-            
-            const productData = {
-                name: document.getElementById('productName').value,
-                category: document.getElementById('productCategory').value,
-                description: document.getElementById('productDescription').value,
-                price: parseFloat(document.getElementById('productPrice').value),
-                stock: parseInt(document.getElementById('productStock').value),
-                status: document.getElementById('productStatus').value,
-                image: imageData || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="60" height="60"%3E%3Crect fill="%23666" width="60" height="60"/%3E%3Ctext x="50%25" y="50%25" font-size="10" fill="white" text-anchor="middle" dominant-baseline="middle"%3ENo Image%3C/text%3E%3C/svg%3E'
-            };
-            
-            if (id) {
-                // Update existing product
-                const index = products.findIndex(p => p.id === parseInt(id));
-                products[index] = { ...products[index], ...productData };
-            } else {
-                // Add new product
-                products.push({ id: nextProductId++, ...productData });
-            }
-            
-            // Save to Firebase
-            saveToFirebase('products', products);
-            
-            loadProducts();
-            closeProductForm();
-            updateInventoryOverview();
+        async function saveProduct(event) {
+            event.preventDefault(); const button=document.querySelector('#productForm button[type="submit"]'); const id=Number(document.getElementById('productId').value)||null; const existing=id?products.find(p=>Number(p.id)===id):null; const split=v=>[...new Set(String(v||'').split(',').map(x=>x.trim()).filter(Boolean))]; const main=document.getElementById('productImageData').value||existing?.image||existing?.images?.[0]||''; const extras=String(document.getElementById('productGalleryUrls').value||'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+            const data={name:document.getElementById('productName').value.trim(),category:document.getElementById('productCategory').value,description:document.getElementById('productDescription').value.trim(),price:parseFloat(document.getElementById('productPrice').value),stock:parseInt(document.getElementById('productStock').value,10),status:document.getElementById('productStatus').value==='Active'?'Active':'Inactive',image:main,images:[main,...extras].filter(Boolean).slice(0,6),sizes:split(document.getElementById('productSizes').value).slice(0,12),colors:split(document.getElementById('productColors').value).slice(0,12)};
+            if(!data.name||!data.category||!Number.isFinite(data.price)||!Number.isInteger(data.stock)||data.stock<0){alert('Please complete all product fields with valid values.');return;} const next=products.map(p=>({...p})); if(id){const i=next.findIndex(p=>Number(p.id)===id);if(i<0){alert('Product no longer exists.');return;}next[i]={...next[i],...data};}else next.push({id:nextProductId,...data});
+            try{if(button){button.disabled=true;button.textContent='Saving…';}await saveToFirebase('products',next);products=next;if(!id)nextProductId++;loadProducts();renderShopProducts();closeProductForm();updateInventoryOverview();alert('Product saved successfully.');}catch(error){console.error('Product save failed:',error);alert(error?.message||'Unable to save product.');}finally{if(button){button.disabled=false;button.textContent='Save Product';}}
         }
+
 
         function editProduct(id) {
             openProductForm(id);
@@ -5797,42 +5804,27 @@
             nav.classList.toggle('mobile-open',open); btn.setAttribute('aria-expanded',String(open)); btn.setAttribute('aria-label',open?'Close navigation':'Open navigation'); btn.textContent=open?'×':'☰';
         }
 
+        function selectProductImage(src, button) { document.getElementById('detailImage').src=src; document.querySelectorAll('.product-gallery-thumb').forEach(el=>el.classList.remove('active')); button?.classList.add('active'); }
+        function selectProductVariant(type,value,button) { currentProductSelection[type]=value; button?.parentElement?.querySelectorAll('.variant-option').forEach(el=>el.classList.remove('selected')); button?.classList.add('selected'); }
+
         // Product Detail Modal Functions
         function openProductDetail(productId) {
-            const product = products.find(p => p.id === productId);
-            if (!product) return;
-            
-            currentProductDetail = product;
-            
-            // Populate modal
-            document.getElementById('detailImage').src = product.image;
-            document.getElementById('detailCategory').textContent = product.category;
-            document.getElementById('detailName').textContent = product.name;
-            document.getElementById('detailPrice').textContent = `EGP ${product.price.toFixed(2)}`;
-            document.getElementById('detailDescription').textContent = product.description;
-            
-            const stockText = product.stock < 10 
-                ? `⚠️ Only ${product.stock} left in stock!` 
-                : `✓ ${product.stock} in stock`;
-            document.getElementById('detailStock').textContent = stockText;
-            
-            // Reset quantity
-            document.getElementById('quantityInput').value = 1;
-            document.getElementById('quantityInput').max = product.stock;
-            
-            // Load recommended products
-            loadRecommendedProducts(product.category, productId);
-            
-            // Show modal
-            document.getElementById('productDetailModal').classList.add('active');
-            document.body.style.overflow = 'hidden';
+            const product=products.find(p=>Number(p.id)===Number(productId)); if(!product)return;
+            currentProductDetail=product; currentProductSelection={size:'',color:''}; lastModalFocus=document.activeElement;
+            const images=(Array.isArray(product.images)?product.images:[]).filter(Boolean); if(!images.length&&product.image)images.push(product.image);
+            const main=document.getElementById('detailImage'); main.src=images[0]||''; main.alt=product.name||'Product image';
+            const gallery=document.getElementById('detailGallery'); gallery.innerHTML=images.length>1?images.map((src,i)=>`<button type="button" class="product-gallery-thumb ${i===0?'active':''}" onclick="selectProductImage(${JSON.stringify(src)},this)" aria-label="View image ${i+1} of ${images.length}"><img src="${escapeHTML(src)}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;"></button>`).join(''):'';
+            document.getElementById('detailCategory').textContent=product.category||''; document.getElementById('detailName').textContent=product.name||''; document.getElementById('detailPrice').textContent=`EGP ${Number(product.price).toFixed(2)}`; document.getElementById('detailDescription').textContent=product.description||''; document.getElementById('detailStock').textContent=Number(product.stock)<10?`⚠️ Only ${Number(product.stock)} left in stock!`:`✓ ${Number(product.stock)} in stock`;
+            const sizes=Array.isArray(product.sizes)?product.sizes.filter(Boolean):[], colors=Array.isArray(product.colors)?product.colors.filter(Boolean):[];
+            document.getElementById('detailSizesGroup').style.display=sizes.length?'block':'none'; document.getElementById('detailColorsGroup').style.display=colors.length?'block':'none';
+            document.getElementById('detailSizes').innerHTML=sizes.map(v=>`<button type="button" class="variant-option" onclick="selectProductVariant('size',${JSON.stringify(v)},this)">${escapeHTML(v)}</button>`).join(''); document.getElementById('detailColors').innerHTML=colors.map(v=>`<button type="button" class="variant-option" onclick="selectProductVariant('color',${JSON.stringify(v)},this)">${escapeHTML(v)}</button>`).join('');
+            const qty=document.getElementById('quantityInput'); qty.value=1; qty.max=Math.max(1,Number(product.stock)||1); loadRecommendedProducts(product.category,product.id);
+            const modal=document.getElementById('productDetailModal'); modal.classList.add('active'); modal.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden'; modal.querySelector('.close-modal')?.focus();
         }
 
-        function closeProductDetail() {
-            document.getElementById('productDetailModal').classList.remove('active');
-            document.body.style.overflow = 'auto';
-            currentProductDetail = null;
-        }
+
+        function closeProductDetail() { const modal=document.getElementById('productDetailModal'); modal.classList.remove('active'); modal.setAttribute('aria-hidden','true'); document.body.style.overflow='auto'; currentProductDetail=null; currentProductSelection={size:'',color:''}; if(lastModalFocus&&document.contains(lastModalFocus))lastModalFocus.focus(); lastModalFocus=null; }
+
 
         function increaseQuantity() {
             const input = document.getElementById('quantityInput');
@@ -5854,44 +5846,15 @@
         }
 
         function addToCartFromDetail() {
-            if (!currentProductDetail) return;
-            
-            const quantity = parseInt(document.getElementById('quantityInput').value);
-            const product = currentProductDetail;
-            
-            // Check if already in cart
-            const existingItem = cart.find(item => item.id === product.id);
-            if (existingItem) {
-                existingItem.quantity += quantity;
-            } else {
-                // Check for product discount
-                const discount = productDiscounts.find(d => d.productId === product.id && d.status === 'active');
-                let finalPrice = product.price;
-                let originalPrice = product.price;
-                
-                if (discount) {
-                    if (discount.type === 'percentage') {
-                        finalPrice = product.price - (product.price * discount.value / 100);
-                    } else {
-                        finalPrice = product.price - discount.value;
-                    }
-                    finalPrice = Math.max(0, finalPrice);
-                }
-                
-                cart.push({
-                    id: product.id,
-                    name: product.name,
-                    price: finalPrice,
-                    originalPrice: originalPrice,
-                    image: product.image,
-                    quantity: quantity
-                });
-            }
-            
-            updateCartBadge();
-            alert(`${quantity}x ${product.name} added to cart!`);
-            closeProductDetail();
+            if(!currentProductDetail)return; const p=currentProductDetail; const sizes=Array.isArray(p.sizes)?p.sizes.filter(Boolean):[], colors=Array.isArray(p.colors)?p.colors.filter(Boolean):[];
+            if(sizes.length&&!currentProductSelection.size){alert('Please select a size.');return;} if(colors.length&&!currentProductSelection.color){alert('Please select a color.');return;}
+            const quantity=Math.max(1,parseInt(document.getElementById('quantityInput').value,10)||1); if(quantity>Number(p.stock)){alert('Selected quantity is no longer available.');return;}
+            const d=productDiscounts.find(x=>Number(x.productId)===Number(p.id)&&x.status==='active'); let price=Number(p.price); if(d)price=d.type==='percentage'?price*(1-Number(d.value)/100):price-Number(d.value); price=Math.max(0,price);
+            const size=currentProductSelection.size||'', color=currentProductSelection.color||''; const existing=cart.find(x=>Number(x.id)===Number(p.id)&&(x.size||'')===size&&(x.color||'')===color);
+            if(existing){if(existing.quantity+quantity>Number(p.stock)){alert('Not enough stock.');return;} existing.quantity+=quantity;} else cart.push({id:p.id,name:p.name,price,originalPrice:Number(p.price),image:p.images?.[0]||p.image,quantity,size,color});
+            updateCartBadge(); alert(`${quantity}x ${p.name} added to cart!`); closeProductDetail();
         }
+
 
         function loadRecommendedProducts(category, excludeId) {
             const grid = document.getElementById('recommendedGrid');
@@ -6140,7 +6103,7 @@
                 }
                 const quoteOrder = cloudFunctions.httpsCallable('quoteOrder');
                 const response = await quoteOrder({
-                    items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
+                    items: cart.map(item => ({ id: item.id, quantity: item.quantity, size: item.size || '', color: item.color || '' })),
                     couponCode: code
                 });
                 if (!response.data.coupon) throw new Error('Invalid coupon code.');
@@ -6272,7 +6235,7 @@
             const itemsContainer = document.getElementById('checkoutSummaryItems');
             itemsContainer.innerHTML = cart.map(item => `
                 <div class="summary-item">
-                    <span>${escapeHTML(item.name)} x${item.quantity}</span>
+                    <span>${escapeHTML(item.name)}${item.size ? ` · ${escapeHTML(item.size)}` : ''}${item.color ? ` · ${escapeHTML(item.color)}` : ''} x${item.quantity}</span>
                     <span>EGP ${(item.price * item.quantity).toFixed(2)}</span>
                 </div>
             `).join('');
@@ -6280,7 +6243,7 @@
             try {
                 const quoteOrder = cloudFunctions.httpsCallable('quoteOrder');
                 const response = await quoteOrder({
-                    items: cart.map(item => ({ id: item.id, quantity: item.quantity })),
+                    items: cart.map(item => ({ id: item.id, quantity: item.quantity, size: item.size || '', color: item.color || '' })),
                     couponCode: appliedCoupon?.code || null
                 });
                 const q = response.data;
@@ -6640,7 +6603,7 @@
                 const createOrder = cloudFunctions.httpsCallable('createOrder');
                 const response = await createOrder({
                     customer,
-                    items: cartSnapshot.map(item => ({ id: item.id, quantity: item.quantity })),
+                    items: cartSnapshot.map(item => ({ id: item.id, quantity: item.quantity, size: item.size || '', color: item.color || '' })),
                     couponCode: appliedCoupon?.code || null,
                     paymentMethod: 'cod'
                 });
