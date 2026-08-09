@@ -66,6 +66,8 @@ jobs:
           FIREBASE_STORAGE_EMULATOR_HOST: 127.0.0.1:9199
           GCLOUD_PROJECT: demo-kem-validation
         run: node validation/seed.cjs
+      - name: Diagnose 360px overflow
+        run: node validation/overflow_diagnostic.cjs
       - name: Run real browser and backend smoke tests
         env:
           NODE_PATH: ${{ github.workspace }}/functions/node_modules:${{ github.workspace }}/node_modules
