@@ -1,0 +1,62 @@
+name: P1 logo final verification
+on:
+  push:
+    branches: [agent/p1-remediation]
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq imagemagick
+      - name: Verify artwork identity and sizes
+        run: |
+          git fetch origin agent/p0-security-commerce
+          ORIGINAL_NOW=$(git hash-object "icon enhanced.png")
+          ORIGINAL_P0=$(git rev-parse 'origin/agent/p0-security-commerce:icon enhanced.png')
+          test "$ORIGINAL_NOW" = "$ORIGINAL_P0"
+          convert "icon enhanced.png" -resize 240x240 -strip -define png:compression-level=9 /tmp/logo-reference.png
+          compare -metric AE /tmp/logo-reference.png logo-240.png null: 2>/tmp/ae.txt || true
+          test "$(cat /tmp/ae.txt)" = "0"
+          OLD_SIZE=$(wc -c < "icon enhanced.png")
+          NEW_SIZE=$(wc -c < logo-240.png)
+          test "$NEW_SIZE" -lt "$OLD_SIZE"
+          test "$NEW_SIZE" -lt 300000
+          identify "icon enhanced.png" logo-240.png
+          echo "old_size=$OLD_SIZE"
+          echo "new_size=$NEW_SIZE"
+          echo "pixel_difference=$(cat /tmp/ae.txt)"
+      - name: Verify source and P1 regressions
+        run: |
+          grep -q 'src="logo-240.png"' index.html
+          ! grep -q 'src="icon enhanced.png"' index.html
+          grep -q 'https://buykem.com/icon%20enhanced.png' index.html
+          test -f favicon-64.png
+          test -f apple-touch-icon.png
+          node --check functions/index.js
+          python3 -m json.tool database.rules.json >/dev/null
+          python3 -m json.tool firebase.json >/dev/null
+          python3 - <<'PY'
+          from pathlib import Path
+          h=Path('index.html').read_text(); b=Path('functions/index.js').read_text()
+          checks=[
+            'revokeEmployeeSession' in h,
+            'await auth.signOut()' in h,
+            "paymentMethod !== 'cod'" in b,
+            'requireVerifiedCustomer' in b,
+            'id="mobileNavToggle"' in h,
+            'id="shopSearch"' in h,
+            'id="accountModal"' in h,
+            'exports.getCustomerOrders' in b,
+            'exports.uploadProductImage' in b,
+            'function updateProductSeo' in h,
+          ]
+          assert all(checks)
+          print('P0/P1 regression invariants passed')
+          PY
+          git diff --check
+          test ! -d scripts
