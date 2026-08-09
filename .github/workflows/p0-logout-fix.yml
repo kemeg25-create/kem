@@ -1,0 +1,187 @@
+name: P0 employee logout fix
+
+on:
+  push:
+    branches:
+      - agent/p0-security-commerce
+
+permissions:
+  contents: write
+
+jobs:
+  fix-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Patch employee logout only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text()
+          old = """        function logoutEmployee() {
+              currentEmployee = null;
+              promotionsUnlocked = false;
+              document.getElementById('employeeDashboard').classList.remove('active');
+              document.getElementById('mainSite').style.display = 'block';
+              document.getElementById('mainNav').style.display = 'flex';
+          }
+          """
+          new = """        async function logoutEmployee() {
+              const dashboard = document.getElementById('employeeDashboard');
+              const mainSite = document.getElementById('mainSite');
+              const mainNav = document.getElementById('mainNav');
+
+              // Remove privileged UI and cached admin data immediately.
+              currentEmployee = null;
+              promotionsUnlocked = false;
+              orders = [];
+              users = {};
+              employeeRoles = {};
+              notifications = [];
+              unreadNotifications = 0;
+              if (dashboard) dashboard.classList.remove('active');
+              if (mainSite) mainSite.style.display = 'block';
+              if (mainNav) mainNav.style.display = 'flex';
+              updateNotificationBadge();
+
+              try {
+                  if (auth?.currentUser) {
+                      await auth.signOut();
+                  }
+                  if (auth?.currentUser) {
+                      throw new Error('Firebase Authentication session is still active after sign-out.');
+                  }
+                  currentUser = null;
+                  updateAuthButton();
+              } catch (error) {
+                  console.error('Employee logout failed:', error);
+                  alert('Unable to securely sign out. Please try again.');
+                  throw error;
+              }
+          }
+          """
+          if old in s:
+              s = s.replace(old, new, 1)
+              p.write_text(s)
+              print('Employee logout patched.')
+          elif 'async function logoutEmployee()' in s and 'await auth.signOut();' in s:
+              print('Employee logout is already patched; no source change needed.')
+          else:
+              raise SystemExit('Expected logoutEmployee implementation not found; refusing broad edit.')
+          PY
+
+      - name: Install backend dependencies
+        working-directory: functions
+        run: npm install --ignore-scripts --no-audit --no-fund
+
+      - name: Check backend syntax
+        run: node --check functions/index.js
+
+      - name: Check all inline JavaScript syntax
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess, tempfile
+          html = Path('index.html').read_text()
+          blocks = re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>', html, re.S | re.I)
+          checked = 0
+          for i, block in enumerate(blocks):
+              if not block.strip():
+                  continue
+              tag_match = re.search(r'<script([^>]*)>' + re.escape(block[:0]), html, re.I)
+              # JSON-LD is the only non-JS inline script in this file; skip by content.
+              if block.lstrip().startswith('{') and '"@context"' in block:
+                  continue
+              with tempfile.NamedTemporaryFile('w', suffix='.js', delete=False) as f:
+                  f.write(block)
+                  name = f.name
+              subprocess.run(['node', '--check', name], check=True)
+              checked += 1
+          print(f'Checked {checked} inline JavaScript block(s).')
+          PY
+
+      - name: Verify logout and P0 authorization invariants
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('index.html').read_text()
+          backend = Path('functions/index.js').read_text()
+          rules = Path('database.rules.json').read_text()
+
+          assert 'async function logoutEmployee()' in html
+          logout_start = html.index('async function logoutEmployee()')
+          logout_slice = html[logout_start:logout_start + 1800]
+          for required in [
+              'await auth.signOut();',
+              'if (auth?.currentUser)',
+              'currentEmployee = null;',
+              'orders = [];',
+              'users = {};',
+              'employeeRoles = {};',
+              "document.getElementById('employeeDashboard')",
+              'updateAuthButton();'
+          ]:
+              assert required in logout_slice, required
+
+          # Customer logout must remain backed by Firebase Auth.
+          assert re.search(r'async function logout\(\).*?await auth\.signOut\(\);', html, re.S)
+
+          # Protected employee callables must still pass through server authorization.
+          assert re.search(r'exports\.getAdminData\s*=.*?getEmployeeForRequest\(request,\s*1\)', backend, re.S)
+          assert re.search(r'exports\.adminWrite\s*=.*?getEmployeeForRequest\(request,\s*minimumRole\)', backend, re.S)
+          assert re.search(r'exports\.updateOrder\s*=.*?getEmployeeForRequest\(request,\s*1\)', backend, re.S)
+          assert "if (!request.auth?.uid || !request.auth?.token?.email)" in backend
+          assert "throw new HttpsError('unauthenticated'" in backend
+          assert 'request.auth.token.email_verified !== true' in backend
+
+          # Direct database access remains closed for privileged paths.
+          assert '"orders": {\n      ".read": false,\n      ".write": false' in rules
+          assert '"employeeRoles": {\n      ".read": false,\n      ".write": false' in rules
+          print('Logout and authorization invariants passed.')
+          PY
+
+      - name: Simulate employee logout state transition
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('index.html').read_text()
+          start = html.index('async function logoutEmployee()')
+          # Ensure the security-critical sequence is present in source order.
+          s = html[start:start+1800]
+          assert s.index('currentEmployee = null;') < s.index('await auth.signOut();')
+          assert s.index('await auth.signOut();') < s.index('if (auth?.currentUser) {', s.index('await auth.signOut();') + 1)
+          assert 'throw new Error(\'Firebase Authentication session is still active after sign-out.\');' in s
+          print('Logout clears privileged state, awaits Firebase sign-out, and verifies the session is gone.')
+          PY
+
+      - name: Diff checks
+        run: |
+          git diff --check
+          git diff --stat
+
+      - name: Commit logout fix if needed
+        run: |
+          if git diff --quiet -- index.html; then
+            echo 'No index.html change to commit.'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Fix employee Firebase logout'
+          git push origin HEAD:agent/p0-security-commerce
+
+      - name: Verify committed diff hygiene
+        run: |
+          git diff --check HEAD^ HEAD || true
+          git status --short
