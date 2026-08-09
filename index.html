@@ -66,6 +66,11 @@
         "https://twitter.com/kemstreetwear"
       ]
     }
+            document.addEventListener('keydown', event => {
+            const dialog=document.querySelector('.form-modal.active,.auth-modal.active,.product-detail-modal.active');
+            if(event.key==='Escape'&&dialog){dialog.querySelector('.close-modal')?.click();return;}
+            if(event.key==='Tab'&&dialog){const focusable=[...dialog.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>el.offsetParent!==null);if(!focusable.length)return;const first=focusable[0],last=focusable[focusable.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}}
+        });
     </script>
     
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@300;400;600;800&display=swap" rel="stylesheet">
@@ -2703,6 +2708,7 @@
                             </button>
                         </div>
 
+                        <div id="checkoutStatus" role="status" aria-live="polite" style="margin-bottom:1rem;color:#666;"></div>
                         <form id="checkoutForm">
                             <div class="checkout-form-group">
                                 <label>Full Name *</label>
@@ -4570,6 +4576,13 @@
 
         function makeDashboardTablesResponsive() { document.querySelectorAll('.data-table').forEach(table=>{if(table.parentElement?.classList.contains('data-table-wrap'))return;const wrap=document.createElement('div');wrap.className='data-table-wrap';table.parentNode.insertBefore(wrap,table);wrap.appendChild(table);}); }
 
+        function enhanceAccessibility() {
+            document.querySelectorAll('label:not([for])').forEach(label=>{const control=label.parentElement?.querySelector('input[id],select[id],textarea[id]');if(control)label.htmlFor=control.id;});
+            document.querySelectorAll('img:not([alt])').forEach(img=>img.alt='');
+            document.querySelectorAll('.form-modal,.auth-modal,.product-detail-modal').forEach(modal=>{if(!modal.hasAttribute('role'))modal.setAttribute('role','dialog');modal.setAttribute('aria-modal','true');if(!modal.hasAttribute('aria-hidden'))modal.setAttribute('aria-hidden',modal.classList.contains('active')?'false':'true');});
+            document.querySelectorAll('.close-modal').forEach(button=>{button.type='button';if(!button.getAttribute('aria-label'))button.setAttribute('aria-label','Close dialog');});
+        }
+
         window.addEventListener('DOMContentLoaded', async () => {
             // Initialize Firebase
             await initializeFirebase();
@@ -4582,6 +4595,7 @@
             renderShopFilters();
             renderFooterSocialLinks();
             makeDashboardTablesResponsive();
+            enhanceAccessibility();
             // Clear coupon on page refresh
             appliedCoupon = null;
             // Show active announcements to customers
@@ -6085,42 +6099,17 @@
             }
         }
 
-        function checkout() {
-            // Check if cart is empty
-            if (cart.length === 0) {
-                alert('Your cart is empty');
-                return;
-            }
-
-            // Open checkout page
-            document.getElementById('cartPage').classList.remove('active');
-            document.getElementById('checkoutPage').classList.add('active');
-            
-            // Pre-fill user information if logged in
-            if (currentUser && currentUser.email) {
-                const userEmail = currentUser.email;
-                const userData = currentUser?.uid ? users[currentUser.uid] : null;
-                
-                document.getElementById('checkoutName').value = userData?.name || currentUser.name || '';
-                document.getElementById('checkoutEmail').value = currentUser.email || '';
-                document.getElementById('checkoutPhone').value = userData?.phone || currentUser.phone || '';
-                
-                // Show saved addresses if user has any
-                if (userData && userData.savedAddresses && userData.savedAddresses.length > 0) {
-                    renderSavedAddresses(userData.savedAddresses);
-                } else {
-                    document.getElementById('savedAddressesSection').style.display = 'none';
-                }
-            } else {
-                // Clear form if not logged in
-                document.getElementById('checkoutForm').reset();
-                document.getElementById('savedAddressesSection').style.display = 'none';
-            }
-
-            renderCheckoutSummary();
-            renderPaymentMethodsCheckout();
-            window.scrollTo(0, 0);
+        async function checkout() {
+            if(cart.length===0){alert('Your cart is empty');return;}
+            if(!auth?.currentUser){alert('Please sign in before checkout so your order can be linked to your account.');openAuthModal();return;}
+            try{await auth.currentUser.reload();await auth.currentUser.getIdToken(true);}catch(error){console.error('Unable to refresh account:',error);alert('Please sign in again before checkout.');return;}
+            if(!auth.currentUser.emailVerified){alert('Please verify your email before checkout.');return;}
+            document.getElementById('cartPage').classList.remove('active'); document.getElementById('checkoutPage').classList.add('active');
+            const userData=currentUser?.uid?users[currentUser.uid]:null; document.getElementById('checkoutName').value=userData?.name||currentUser?.name||''; document.getElementById('checkoutEmail').value=auth.currentUser.email||''; document.getElementById('checkoutPhone').value=userData?.phone||currentUser?.phone||'';
+            if(userData?.savedAddresses?.length)renderSavedAddresses(userData.savedAddresses);else document.getElementById('savedAddressesSection').style.display='none';
+            renderPaymentMethodsCheckout(); await renderCheckoutSummary(); window.scrollTo(0,0);
         }
+
 
         function backToCart() {
             document.getElementById('checkoutPage').classList.remove('active');
@@ -6160,55 +6149,18 @@
             `;
         }
 
-                async function renderCheckoutSummary() {
-            const itemsContainer = document.getElementById('checkoutSummaryItems');
-            itemsContainer.innerHTML = cart.map(item => `
-                <div class="summary-item">
-                    <span>${escapeHTML(item.name)}${item.size ? ` · ${escapeHTML(item.size)}` : ''}${item.color ? ` · ${escapeHTML(item.color)}` : ''} x${item.quantity}</span>
-                    <span>EGP ${(item.price * item.quantity).toFixed(2)}</span>
-                </div>
-            `).join('');
-
-            try {
-                const quoteOrder = cloudFunctions.httpsCallable('quoteOrder');
-                const response = await quoteOrder({
-                    items: cart.map(item => ({ id: item.id, quantity: item.quantity, size: item.size || '', color: item.color || '' })),
-                    couponCode: appliedCoupon?.code || null
-                });
-                const q = response.data;
-                document.getElementById('checkoutSubtotal').textContent = `EGP ${Number(q.subtotal).toFixed(2)}`;
-                document.getElementById('checkoutShipping').textContent = Number(q.shipping) === 0 ? 'Free' : `EGP ${Number(q.shipping).toFixed(2)}`;
-                document.getElementById('checkoutTotal').textContent = `EGP ${Number(q.total).toFixed(2)}`;
-
-                const thresholdRow = document.getElementById('checkoutThresholdRow');
-                thresholdRow.style.display = Number(q.thresholdDiscount) > 0 ? 'flex' : 'none';
-                thresholdRow.querySelector('span:last-child').textContent = `-EGP ${Number(q.thresholdDiscount).toFixed(2)}`;
-
-                const couponRow = document.getElementById('checkoutCouponRow');
-                couponRow.style.display = Number(q.couponDiscount) > 0 ? 'flex' : 'none';
-                couponRow.querySelector('span:last-child').textContent = `-EGP ${Number(q.couponDiscount).toFixed(2)}`;
-
-                const processingRow = document.getElementById('checkoutProcessingRow');
-                processingRow.style.display = Number(q.processingFee) > 0 ? 'flex' : 'none';
-                document.getElementById('checkoutProcessing').textContent = `EGP ${Number(q.processingFee).toFixed(2)}`;
-
-                const serviceRow = document.getElementById('checkoutServiceRow');
-                serviceRow.style.display = Number(q.serviceFee) > 0 ? 'flex' : 'none';
-                document.getElementById('checkoutService').textContent = `EGP ${Number(q.serviceFee).toFixed(2)}`;
-
-                const taxRow = document.getElementById('checkoutTaxRow');
-                taxRow.style.display = Number(q.tax) > 0 ? 'flex' : 'none';
-                document.getElementById('checkoutTax').textContent = `EGP ${Number(q.tax).toFixed(2)}`;
-
-                const savings = Number(q.thresholdDiscount) + Number(q.couponDiscount);
-                const savingsRow = document.getElementById('checkoutSavingsRow');
-                savingsRow.style.display = savings > 0 ? 'flex' : 'none';
-                savingsRow.querySelector('span:last-child').textContent = `EGP ${savings.toFixed(2)}`;
-            } catch (error) {
-                console.error('Unable to quote order:', error);
-                document.getElementById('checkoutTotal').textContent = 'Unable to calculate';
-            }
+        async function renderCheckoutSummary() {
+            const itemsContainer=document.getElementById('checkoutSummaryItems'); const status=document.getElementById('checkoutStatus'); const orderButton=document.querySelector('.place-order-btn');
+            itemsContainer.innerHTML=cart.map(item=>`<div class="summary-item"><span>${escapeHTML(item.name)}${item.size?` · ${escapeHTML(item.size)}`:''}${item.color?` · ${escapeHTML(item.color)}`:''} x${item.quantity}</span><span>EGP ${(Number(item.price)*item.quantity).toFixed(2)}</span></div>`).join('');
+            if(status)status.textContent='Calculating your order total…'; if(orderButton)orderButton.disabled=true; document.getElementById('checkoutTotal').textContent='Calculating…';
+            try{const quoteOrder=cloudFunctions.httpsCallable('quoteOrder');const response=await quoteOrder({items:cart.map(item=>({id:item.id,quantity:item.quantity,size:item.size||'',color:item.color||''})),couponCode:appliedCoupon?.code||null});const q=response.data;
+                document.getElementById('checkoutSubtotal').textContent=`EGP ${Number(q.subtotal).toFixed(2)}`;document.getElementById('checkoutShipping').textContent=Number(q.shipping)===0?'Free':`EGP ${Number(q.shipping).toFixed(2)}`;document.getElementById('checkoutTotal').textContent=`EGP ${Number(q.total).toFixed(2)}`;
+                const threshold=document.getElementById('checkoutThresholdRow');threshold.style.display=Number(q.thresholdDiscount)>0?'flex':'none';threshold.querySelector('span:last-child').textContent=`-EGP ${Number(q.thresholdDiscount).toFixed(2)}`;const coupon=document.getElementById('checkoutCouponRow');coupon.style.display=Number(q.couponDiscount)>0?'flex':'none';coupon.querySelector('span:last-child').textContent=`-EGP ${Number(q.couponDiscount).toFixed(2)}`;
+                const processing=document.getElementById('checkoutProcessingRow');processing.style.display=Number(q.processingFee)>0?'flex':'none';document.getElementById('checkoutProcessing').textContent=`EGP ${Number(q.processingFee).toFixed(2)}`;const service=document.getElementById('checkoutServiceRow');service.style.display=Number(q.serviceFee)>0?'flex':'none';document.getElementById('checkoutService').textContent=`EGP ${Number(q.serviceFee).toFixed(2)}`;const tax=document.getElementById('checkoutTaxRow');tax.style.display=Number(q.tax)>0?'flex':'none';document.getElementById('checkoutTax').textContent=`EGP ${Number(q.tax).toFixed(2)}`;const savings=Number(q.thresholdDiscount)+Number(q.couponDiscount);const saveRow=document.getElementById('checkoutSavingsRow');saveRow.style.display=savings>0?'flex':'none';saveRow.querySelector('span:last-child').textContent=`EGP ${savings.toFixed(2)}`;
+                if(status)status.textContent='Order total is ready.';if(orderButton)orderButton.disabled=false;return true;
+            }catch(error){console.error('Unable to quote order:',error);document.getElementById('checkoutTotal').textContent='Unable to calculate';if(status)status.textContent=error?.message||'Unable to calculate the order. Review your cart and try again.';if(orderButton)orderButton.disabled=true;return false;}
         }
+
 
                 // ============================================
         // EMAIL NOTIFICATION SYSTEM
@@ -6425,31 +6377,10 @@
 
         // Saved Addresses Functions
         function renderSavedAddresses(addresses) {
-            const section = document.getElementById('savedAddressesSection');
-            const list = document.getElementById('savedAddressesList');
-            
-            if (!addresses || addresses.length === 0) {
-                section.style.display = 'none';
-                return;
-            }
-            
-            section.style.display = 'block';
-            
-            list.innerHTML = addresses.map(addr => `
-                <div style="border: 2px solid var(--border); padding: 1.5rem; border-radius: 8px; cursor: pointer; transition: all 0.3s; position: relative;" 
-                     onclick="selectSavedAddress(${addr.id})" 
-                     onmouseover="this.style.borderColor='var(--accent)'" 
-                     onmouseout="this.style.borderColor='var(--border)'">
-                    ${addr.isDefault ? '<div style="position: absolute; top: 0.5rem; right: 0.5rem; background: var(--accent); color: white; padding: 0.3rem 0.8rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">DEFAULT</div>' : ''}
-                    <div style="font-weight: 700; font-size: 1.1rem; margin-bottom: 0.5rem;">📍 ${addr.label}</div>
-                    <div style="color: #666; line-height: 1.6;">
-                        ${addr.address}<br>
-                        Building: ${addr.houseNumber}${addr.floor ? ', Floor: ' + addr.floor : ''}<br>
-                        ${addr.city}${addr.postal ? ' - ' + addr.postal : ''}
-                    </div>
-                </div>
-            `).join('');
+            const section=document.getElementById('savedAddressesSection'),list=document.getElementById('savedAddressesList');if(!addresses?.length){section.style.display='none';return;}section.style.display='block';
+            list.innerHTML=addresses.map(addr=>`<button type="button" style="text-align:left;width:100%;border:2px solid var(--border);padding:1.5rem;border-radius:8px;background:white;position:relative;margin-bottom:.75rem;" onclick="selectSavedAddress(${Number(addr.id)})">${addr.isDefault?'<span style="position:absolute;top:.5rem;right:.5rem;background:var(--accent);color:white;padding:.3rem .8rem;border-radius:4px;font-size:.75rem;font-weight:600;">DEFAULT</span>':''}<span style="display:block;font-weight:700;font-size:1.1rem;margin-bottom:.5rem;">📍 ${escapeHTML(addr.label||'Saved address')}</span><span style="display:block;color:#666;line-height:1.6;">${escapeHTML(addr.address||'')}<br>Building: ${escapeHTML(addr.houseNumber||'')}${addr.floor?`, Floor: ${escapeHTML(addr.floor)}`:''}<br>${escapeHTML(addr.city||'')}${addr.postal?` - ${escapeHTML(addr.postal)}`:''}</span></button>`).join('');
         }
+
         
         function selectSavedAddress(addressId) {
             if (!currentUser || !currentUser.email) return;
@@ -6526,7 +6457,7 @@
             };
             const cartSnapshot = cart.map(item => ({ ...item }));
             const button = document.querySelector('.place-order-btn');
-            if (button) button.disabled = true;
+            if (button) { button.disabled = true; button.dataset.originalText = button.textContent; button.textContent = 'Placing order…'; }
 
             try {
                 const createOrder = cloudFunctions.httpsCallable('createOrder');
@@ -6566,7 +6497,7 @@
                 alert(error?.message || 'Your order could not be completed. Nothing was charged or deducted.');
                 await renderCheckoutSummary();
             } finally {
-                if (button) button.disabled = false;
+                if (button) { button.disabled = false; button.textContent = button.dataset.originalText || 'Place Order'; }
             }
         }
 
