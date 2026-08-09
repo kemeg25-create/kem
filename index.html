@@ -217,6 +217,13 @@
             width: 100%;
         }
 
+        .mobile-nav-toggle { display:none; width:44px; height:44px; border:2px solid var(--primary); background:white; font-size:1.35rem; align-items:center; justify-content:center; }
+        .shop-tools { max-width:1400px; margin:0 auto 2rem; display:grid; gap:1rem; }
+        .shop-search { width:min(100%,560px); margin:auto; padding:.9rem 1rem; border:2px solid var(--border); font:inherit; background:white; }
+        .shop-filters { display:flex; justify-content:center; gap:.75rem; flex-wrap:wrap; }
+        :focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+        .data-table-wrap { width:100%; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+
         /* Categories Dropdown */
         .nav-dropdown {
             position: relative;
@@ -2422,10 +2429,25 @@
             border-bottom: none;
         }
 
+        @media (max-width: 1024px) {
+            nav { padding:1rem 10rem 1rem 1.25rem; }
+            .dashboard-tabs { overflow-x:auto; white-space:nowrap; }
+            .data-table { min-width:720px; }
+        }
+
         @media (max-width: 768px) {
-            .nav-links {
-                display: none;
-            }
+            nav { padding:.75rem 1rem; min-height:72px; }
+            .logo { font-size:2rem; }
+            .logo img { height:38px; }
+            .mobile-nav-toggle { display:inline-flex; margin-left:auto; }
+            .nav-links { display:none; position:absolute; top:100%; left:0; right:0; background:white; border-bottom:1px solid var(--border); padding:1rem; flex-direction:column; align-items:stretch; gap:0; max-height:calc(100vh - 72px); overflow-y:auto; }
+            .nav-links.mobile-open { display:flex; }
+            .nav-links > li, .nav-links a, .nav-dropdown-btn { width:100%; }
+            .nav-links a, .nav-dropdown-btn { padding:.85rem .5rem; display:flex; }
+            .nav-dropdown-content { position:static; box-shadow:none; margin-top:0; width:100%; }
+            .shop { padding:4rem 1rem !important; }
+            .collections { padding:4rem 1rem; }
+            .section-title { font-size:2.5rem; }
 
             .hero-title {
                 font-size: 4rem;
@@ -2504,7 +2526,8 @@
             <img src="icon enhanced.png" alt="KEM" onerror="this.style.display='none'">
             <span class="logo-text">KEM</span>
         </div>
-        <ul class="nav-links">
+        <button type="button" class="mobile-nav-toggle" id="mobileNavToggle" aria-expanded="false" aria-controls="primaryNav" aria-label="Open navigation" onclick="toggleMobileNav()">☰</button>
+        <ul class="nav-links" id="primaryNav">
             <li><a href="#home">Home</a></li>
             <li class="nav-dropdown">
                 <button class="nav-dropdown-btn" onclick="toggleCategoriesDropdown()">
@@ -2583,13 +2606,11 @@
         <!-- Shop Section -->
         <section class="shop" id="shop" style="padding: 6rem 3rem; background: white;">
             <h2 class="section-title">Shop All Products</h2>
-            
-            <!-- Filter Buttons -->
-            <div style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 3rem;">
-                <button class="filter-btn active" onclick="filterByCategory('all')" data-category="all">All Products</button>
-                <button class="filter-btn" onclick="filterByCategory('Urban Core')" data-category="Urban Core">Urban Core</button>
-                <button class="filter-btn" onclick="filterByCategory('Neon Nights')" data-category="Neon Nights">Neon Nights</button>
-                <button class="filter-btn" onclick="filterByCategory('Minimal Edge')" data-category="Minimal Edge">Minimal Edge</button>
+            <div class="shop-tools">
+                <label for="shopSearch" style="position:absolute;left:-9999px;">Search products</label>
+                <input class="shop-search" type="search" id="shopSearch" placeholder="Search products or collections" autocomplete="off" oninput="setShopSearch(this.value)">
+                <div class="shop-filters" id="shopFilterButtons" aria-label="Filter products by collection"></div>
+                <p id="shopResultsStatus" style="text-align:center;color:#666;margin:0;" aria-live="polite"></p>
             </div>
 
             <!-- Products Grid -->
@@ -3985,78 +4006,17 @@
         });
 
         // Shop Functions
-        function renderShopProducts(category = 'all') {
-            const grid = document.getElementById('shopProductsGrid');
-            if (!grid) return;
-            
-            let productsToShow = products.filter(p => p.status === 'Active');
-            
-            if (category !== 'all') {
-                productsToShow = productsToShow.filter(p => p.category === category);
-            }
-            
-            grid.innerHTML = '';
-            
-            if (productsToShow.length === 0) {
-                grid.innerHTML = '<p style="text-align: center; grid-column: 1/-1; padding: 3rem; color: #666;">No products available in this collection yet.</p>';
-                return;
-            }
-            
-            productsToShow.forEach(product => {
-                const stockClass = product.stock < 10 ? 'low' : '';
-                const stockText = product.stock < 10 ? `Only ${product.stock} left!` : `${product.stock} in stock`;
-                
-                // Check for product discount
-                const discount = productDiscounts.find(d => d.productId === product.id && d.status === 'active');
-                let displayPrice = product.price;
-                let hasDiscount = false;
-                
-                if (discount) {
-                    hasDiscount = true;
-                    if (discount.type === 'percentage') {
-                        displayPrice = product.price - (product.price * discount.value / 100);
-                    } else {
-                        displayPrice = product.price - discount.value;
-                    }
-                    displayPrice = Math.max(0, displayPrice);
-                }
-                
-                const productCard = document.createElement('div');
-                productCard.className = 'product-card';
-                productCard.innerHTML = `
-                    <img src="${product.image}" alt="${product.name}" class="product-card-image" onclick="openProductDetail(${product.id})" style="cursor: pointer;">
-                    <div class="product-card-info">
-                        <div class="product-card-category">${product.category}</div>
-                        <div class="product-card-name" onclick="openProductDetail(${product.id})" style="cursor: pointer;">${product.name}</div>
-                        <div class="product-card-description">${product.description}</div>
-                        <div class="product-card-footer">
-                            <div class="product-card-price">
-                                ${hasDiscount ? `
-                                    <span style="text-decoration: line-through; color: #999; font-size: 0.9rem; margin-right: 0.5rem;">EGP ${product.price.toFixed(2)}</span>
-                                    <span style="color: var(--accent); font-weight: 800;">EGP ${displayPrice.toFixed(2)}</span>
-                                    <div style="font-size: 0.75rem; color: var(--accent); margin-top: 0.25rem;">🔥 ON SALE</div>
-                                ` : `EGP ${product.price.toFixed(2)}`}
-                            </div>
-                            <div class="product-card-stock ${stockClass}">${stockText}</div>
-                        </div>
-                        <button class="add-to-cart-btn" onclick="addToCart(${product.id}); event.stopPropagation();" style="cursor: pointer;">Add to Cart</button>
-                    </div>
-                `;
-                grid.appendChild(productCard);
-            });
+        function renderShopProducts() {
+            const grid=document.getElementById('shopProductsGrid'); if(!grid)return;
+            const q=String(shopSearchTerm||'').trim().toLowerCase();
+            const shown=products.filter(p=>p.status==='Active'&&(shopCategoryFilter==='all'||p.category===shopCategoryFilter)&&(!q||String(p.name||'').toLowerCase().includes(q)||String(p.category||'').toLowerCase().includes(q)||String(p.description||'').toLowerCase().includes(q)));
+            const status=document.getElementById('shopResultsStatus'); if(status)status.textContent=`${shown.length} product${shown.length===1?'':'s'} found`;
+            if(!shown.length){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:3rem 1rem;"><h3>No products found</h3><p style="color:#666;margin-top:.5rem;">Try another search or collection.</p></div>';return;}
+            grid.innerHTML=shown.map(p=>`<article class="product-card" tabindex="0" onclick="openProductDetail(${Number(p.id)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openProductDetail(${Number(p.id)})}"><img src="${escapeHTML(p.images?.[0]||p.image||'')}" alt="${escapeHTML(p.name)}" loading="lazy" decoding="async"><div class="product-info"><div class="product-category">${escapeHTML(p.category)}</div><h3>${escapeHTML(p.name)}</h3><div class="product-price">EGP ${Number(p.price).toFixed(2)}</div><div class="product-stock">${Number(p.stock)>0?`${Number(p.stock)} in stock`:'Out of stock'}</div></div></article>`).join('');
         }
 
-        function filterByCategory(category) {
-            // Update filter button states
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.remove('active');
-                if (btn.getAttribute('data-category') === category) {
-                    btn.classList.add('active');
-                }
-            });
-            
-            renderShopProducts(category);
-        }
+
+
 
         function goToShop(category) {
             // Scroll to shop section
@@ -4564,18 +4524,7 @@
         });
 
         // Update filterByCategory to work with new structure
-        function filterByCategory(categoryName) {
-            currentFilter = categoryName;
-            document.getElementById('categoriesDropdown').classList.remove('active');
-            document.getElementById('shop').scrollIntoView({behavior: 'smooth'});
-            setTimeout(() => {
-                document.querySelectorAll('.filter-btn').forEach(btn => {
-                    btn.classList.remove('active');
-                    if (btn.textContent === categoryName) btn.classList.add('active');
-                });
-                renderShopProducts();
-            }, 500);
-        }
+
 
         window.addEventListener('DOMContentLoaded', async () => {
             // Initialize Firebase
@@ -4586,6 +4535,7 @@
             
             renderShopProducts();
             renderCategoriesDropdown();
+            renderShopFilters();
             renderFooterSocialLinks();
             // Clear coupon on page refresh
             appliedCoupon = null;
@@ -4734,6 +4684,7 @@
                 const target = document.querySelector(this.getAttribute('href'));
                 if (target) {
                     target.scrollIntoView({ behavior: 'smooth' });
+                    toggleMobileNav(false);
                 }
             });
         });
@@ -4888,7 +4839,7 @@
             if (!firebaseInitialized) return;
             const bindings = [
                 ['products', data => { products = firebaseList(data); renderShopProducts(); }],
-                ['categories', data => { categories = firebaseList(data); renderCategoriesDropdown(); }],
+                ['categories', data => { categories = firebaseList(data); renderCategoriesDropdown(); renderShopFilters(); renderShopProducts(); }],
                 ['announcements', data => { announcements = firebaseList(data); }],
                 ['productDiscounts', data => { productDiscounts = firebaseList(data); renderShopProducts(); }],
                 ['orderDiscounts', data => { thresholdDiscounts = firebaseList(data); }],
@@ -5024,6 +4975,8 @@
 
         // Shopping Cart
         let cart = [];
+        let shopCategoryFilter = 'all';
+        let shopSearchTerm = '';
         let currentProductDetail = null;
 
         // User Authentication
@@ -5826,6 +5779,22 @@
             } else {
                 badge.classList.add('empty');
             }
+        }
+
+        function getCategoryName(category) { return typeof category === 'string' ? category : String(category?.name || ''); }
+
+        function renderShopFilters() {
+            const el=document.getElementById('shopFilterButtons'); if(!el)return;
+            const names=[...new Set(categories.map(getCategoryName).filter(Boolean))];
+            el.innerHTML=['all',...names].map(name=>`<button type="button" class="filter-btn ${shopCategoryFilter===name?'active':''}" data-category="${escapeHTML(name)}" onclick="filterByCategory(${JSON.stringify(name)})">${escapeHTML(name==='all'?'All Products':name)}</button>`).join('');
+        }
+
+        function filterByCategory(name) { shopCategoryFilter=name||'all'; renderShopFilters(); renderShopProducts(); document.getElementById('categoriesDropdown')?.classList.remove('active'); }
+        function setShopSearch(value) { shopSearchTerm=String(value||''); renderShopProducts(); }
+        function toggleMobileNav(forceOpen) {
+            const nav=document.getElementById('primaryNav'), btn=document.getElementById('mobileNavToggle'); if(!nav||!btn)return;
+            const open=typeof forceOpen==='boolean'?forceOpen:!nav.classList.contains('mobile-open');
+            nav.classList.toggle('mobile-open',open); btn.setAttribute('aria-expanded',String(open)); btn.setAttribute('aria-label',open?'Close navigation':'Open navigation'); btn.textContent=open?'×':'☰';
         }
 
         // Product Detail Modal Functions
