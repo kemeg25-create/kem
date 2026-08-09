@@ -26,6 +26,9 @@ jobs:
       - name: Apply storefront P0 patch
         run: python scripts/apply-p0.py
 
+      - name: Normalize obsolete legacy P0 branches
+        run: python scripts/fix-legacy-p0-remnants.py
+
       - name: Verify backend syntax
         run: node --check functions/index.js
 
