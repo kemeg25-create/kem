@@ -18,7 +18,7 @@
     <meta property="og:url" content="https://buykem.com">
     <meta property="og:title" content="KEM — Premium Egyptian Streetwear | Urban Fashion Online Store">
     <meta property="og:description" content="Shop KEM's exclusive collection of streetwear clothing in Egypt. Premium hoodies, t-shirts, cargo pants & urban fashion. Free shipping over EGP 1000.">
-    <meta property="og:image" content="https://buykem.com/og-image.jpg">
+    <meta property="og:image" content="https://buykem.com/icon%20enhanced.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:site_name" content="KEM Streetwear">
@@ -29,7 +29,7 @@
     <meta name="twitter:url" content="https://buykem.com">
     <meta name="twitter:title" content="KEM — Premium Egyptian Streetwear">
     <meta name="twitter:description" content="Shop exclusive streetwear collections. Free shipping over EGP 1000. Cash on delivery available.">
-    <meta name="twitter:image" content="https://buykem.com/og-image.jpg">
+    <meta name="twitter:image" content="https://buykem.com/icon%20enhanced.png">
     
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="icon enhanced.png">
@@ -44,29 +44,29 @@
       "name": "KEM Streetwear",
       "description": "Premium Egyptian streetwear and urban fashion online store",
       "url": "https://buykem.com",
-      "logo": "https://buykem.com/logo.png",
-      "image": "https://buykem.com/og-image.jpg",
-      "telephone": "+20-XXX-XXXX-XXX",
+      "logo": "https://buykem.com/icon%20enhanced.png",
+      "image": "https://buykem.com/icon%20enhanced.png",
       "email": "info@buykem.com",
       "address": {
         "@type": "PostalAddress",
         "addressCountry": "EG"
       },
       "priceRange": "EGP 500 - EGP 2000",
-      "acceptedPaymentMethod": [
-        "Cash",
-        "CreditCard",
-        "DebitCard"
-      ],
+      "acceptedPaymentMethod": ["Cash"],
       "currenciesAccepted": "EGP",
-      "paymentAccepted": "Cash on Delivery, Credit Card, Debit Card",
+      "paymentAccepted": "Cash on Delivery",
       "sameAs": [
         "https://instagram.com/kemstreetwear",
         "https://facebook.com/kemstreetwear",
         "https://twitter.com/kemstreetwear"
       ]
     }
-            document.addEventListener('keydown', event => {
+            window.addEventListener('popstate', () => {
+            const id=Number(new URL(window.location.href).searchParams.get('product'));
+            if(id) openProductDetail(id,{fromHistory:true}); else if(document.getElementById('productDetailModal')?.classList.contains('active')) closeProductDetail({fromHistory:true});
+        });
+
+        document.addEventListener('keydown', event => {
             const dialog=document.querySelector('.form-modal.active,.auth-modal.active,.product-detail-modal.active');
             if(event.key==='Escape'&&dialog){dialog.querySelector('.close-modal')?.click();return;}
             if(event.key==='Tab'&&dialog){const focusable=[...dialog.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>el.offsetParent!==null);if(!focusable.length)return;const first=focusable[0],last=focusable[focusable.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}}
@@ -2526,7 +2526,6 @@
     <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 
     <!-- Stripe Payment Gateway -->
-    <script src="https://js.stripe.com/v3/"></script>
 
 </head>
 <body>
@@ -4063,7 +4062,7 @@
             const shown=products.filter(p=>p.status==='Active'&&(shopCategoryFilter==='all'||p.category===shopCategoryFilter)&&(!q||String(p.name||'').toLowerCase().includes(q)||String(p.category||'').toLowerCase().includes(q)||String(p.description||'').toLowerCase().includes(q)));
             const status=document.getElementById('shopResultsStatus'); if(status)status.textContent=`${shown.length} product${shown.length===1?'':'s'} found`;
             if(!shown.length){grid.innerHTML='<div style="grid-column:1/-1;text-align:center;padding:3rem 1rem;"><h3>No products found</h3><p style="color:#666;margin-top:.5rem;">Try another search or collection.</p></div>';return;}
-            grid.innerHTML=shown.map(p=>`<article class="product-card" tabindex="0" onclick="openProductDetail(${Number(p.id)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openProductDetail(${Number(p.id)})}"><img src="${escapeHTML(p.images?.[0]||p.image||'')}" alt="${escapeHTML(p.name)}" loading="lazy" decoding="async"><div class="product-info"><div class="product-category">${escapeHTML(p.category)}</div><h3>${escapeHTML(p.name)}</h3><div class="product-price">EGP ${Number(p.price).toFixed(2)}</div><div class="product-stock">${Number(p.stock)>0?`${Number(p.stock)} in stock`:'Out of stock'}</div></div></article>`).join('');
+            grid.innerHTML=shown.map(p=>`<article class="product-card" tabindex="0" onclick="openProductDetail(${Number(p.id)})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openProductDetail(${Number(p.id)})}"><img src="${escapeHTML(p.images?.[0]||p.image||'')}" alt="${escapeHTML(p.name)}" loading="lazy" decoding="async"><div class="product-info"><div class="product-category">${escapeHTML(p.category)}</div><h3><a href="?product=${Number(p.id)}" onclick="event.preventDefault();event.stopPropagation();openProductDetail(${Number(p.id)})" style="color:inherit;text-decoration:none;">${escapeHTML(p.name)}</a></h3><div class="product-price">EGP ${Number(p.price).toFixed(2)}</div><div class="product-stock">${Number(p.stock)>0?`${Number(p.stock)} in stock`:'Out of stock'}</div></div></article>`).join('');
         }
 
 
@@ -4596,6 +4595,8 @@
             renderFooterSocialLinks();
             makeDashboardTablesResponsive();
             enhanceAccessibility();
+            const initialProductId=Number(new URL(window.location.href).searchParams.get('product'));
+            if(initialProductId) openProductDetail(initialProductId,{fromHistory:true});
             // Clear coupon on page refresh
             appliedCoupon = null;
             // Show active announcements to customers
@@ -4782,7 +4783,7 @@
 
         // Firebase imports will be loaded from CDN
         // Initialize Firebase
-        let db, auth, storage, cloudFunctions;
+        let db, auth, cloudFunctions;
         let firebaseInitialized = false;
 
         async function initializeFirebase() {
@@ -4795,7 +4796,6 @@
                 if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
                 db = firebase.database();
                 auth = firebase.auth();
-                storage = firebase.storage();
                 cloudFunctions = firebase.functions();
                 firebaseInitialized = true;
 
@@ -5750,8 +5750,45 @@
         function selectProductImage(src, button) { document.getElementById('detailImage').src=src; document.querySelectorAll('.product-gallery-thumb').forEach(el=>el.classList.remove('active')); button?.classList.add('active'); }
         function selectProductVariant(type,value,button) { currentProductSelection[type]=value; button?.parentElement?.querySelectorAll('.variant-option').forEach(el=>el.classList.remove('selected')); button?.classList.add('selected'); }
 
+        const homeSeo = {
+            title: document.title,
+            description: document.querySelector('meta[name="description"]')?.content || '',
+            canonical: document.querySelector('link[rel="canonical"]')?.href || 'https://buykem.com/'
+        };
+
+        function updateProductSeo(product) {
+            if (!product) return;
+            const title = `${product.name} — KEM`;
+            const description = String(product.description || `Shop ${product.name} from KEM.`).slice(0, 160);
+            const url = new URL(window.location.href);
+            url.searchParams.set('product', product.id);
+            document.title = title;
+            document.querySelector('meta[name="description"]')?.setAttribute('content', description);
+            document.querySelector('link[rel="canonical"]')?.setAttribute('href', url.href);
+            document.querySelector('meta[property="og:title"]')?.setAttribute('content', title);
+            document.querySelector('meta[property="og:description"]')?.setAttribute('content', description);
+            document.querySelector('meta[property="og:url"]')?.setAttribute('content', url.href);
+            document.querySelector('meta[name="twitter:title"]')?.setAttribute('content', title);
+            document.querySelector('meta[name="twitter:description"]')?.setAttribute('content', description);
+            const image = product.images?.[0] || product.image;
+            if (image) { document.querySelector('meta[property="og:image"]')?.setAttribute('content', image); document.querySelector('meta[name="twitter:image"]')?.setAttribute('content', image); }
+        }
+
+        function restoreHomeSeo() {
+            document.title = homeSeo.title;
+            document.querySelector('meta[name="description"]')?.setAttribute('content', homeSeo.description);
+            document.querySelector('link[rel="canonical"]')?.setAttribute('href', homeSeo.canonical);
+            document.querySelector('meta[property="og:title"]')?.setAttribute('content', 'KEM — Premium Egyptian Streetwear | Urban Fashion Online Store');
+            document.querySelector('meta[property="og:description"]')?.setAttribute("content", "Shop KEM's exclusive collection of streetwear clothing in Egypt. Premium hoodies, t-shirts, cargo pants & urban fashion. Free shipping over EGP 1000.");
+            document.querySelector('meta[property="og:url"]')?.setAttribute('content', 'https://buykem.com');
+            document.querySelector('meta[property="og:image"]')?.setAttribute('content', 'https://buykem.com/icon%20enhanced.png');
+            document.querySelector('meta[name="twitter:title"]')?.setAttribute('content', 'KEM — Premium Egyptian Streetwear');
+            document.querySelector('meta[name="twitter:description"]')?.setAttribute('content', 'Shop exclusive streetwear collections. Free shipping over EGP 1000. Cash on delivery available.');
+            document.querySelector('meta[name="twitter:image"]')?.setAttribute('content', 'https://buykem.com/icon%20enhanced.png');
+        }
+
         // Product Detail Modal Functions
-        function openProductDetail(productId) {
+        function openProductDetail(productId, options = {}) {
             const product=products.find(p=>Number(p.id)===Number(productId)); if(!product)return;
             currentProductDetail=product; currentProductSelection={size:'',color:''}; lastModalFocus=document.activeElement;
             const images=(Array.isArray(product.images)?product.images:[]).filter(Boolean); if(!images.length&&product.image)images.push(product.image);
@@ -5763,10 +5800,17 @@
             document.getElementById('detailSizes').innerHTML=sizes.map(v=>`<button type="button" class="variant-option" onclick="selectProductVariant('size',${JSON.stringify(v)},this)">${escapeHTML(v)}</button>`).join(''); document.getElementById('detailColors').innerHTML=colors.map(v=>`<button type="button" class="variant-option" onclick="selectProductVariant('color',${JSON.stringify(v)},this)">${escapeHTML(v)}</button>`).join('');
             const qty=document.getElementById('quantityInput'); qty.value=1; qty.max=Math.max(1,Number(product.stock)||1); loadRecommendedProducts(product.category,product.id);
             const modal=document.getElementById('productDetailModal'); modal.classList.add('active'); modal.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden'; modal.querySelector('.close-modal')?.focus();
+            updateProductSeo(product);
+            if (!options.fromHistory) { const url=new URL(window.location.href); url.searchParams.set('product', product.id); history.pushState({productId: product.id}, '', url); }
         }
 
 
-        function closeProductDetail() { const modal=document.getElementById('productDetailModal'); modal.classList.remove('active'); modal.setAttribute('aria-hidden','true'); document.body.style.overflow='auto'; currentProductDetail=null; currentProductSelection={size:'',color:''}; if(lastModalFocus&&document.contains(lastModalFocus))lastModalFocus.focus(); lastModalFocus=null; }
+        function closeProductDetail(options = {}) {
+            const modal=document.getElementById('productDetailModal'); modal.classList.remove('active'); modal.setAttribute('aria-hidden','true'); document.body.style.overflow='auto'; currentProductDetail=null; currentProductSelection={size:'',color:''};
+            if (!options.fromHistory) { const url=new URL(window.location.href); if(url.searchParams.has('product')){url.searchParams.delete('product');history.pushState({},'',url);} }
+            restoreHomeSeo(); if(lastModalFocus&&document.contains(lastModalFocus))lastModalFocus.focus(); lastModalFocus=null;
+        }
+
 
 
         function increaseQuantity() {
@@ -6191,83 +6235,10 @@
                 // ============================================
         // STRIPE PAYMENT GATEWAY (Disabled for Egypt)
         // ============================================
-        
-        const stripeConfig = {
-            publishableKey: "YOUR_STRIPE_PUBLISHABLE_KEY"
-        };
 
-        let stripe, stripeInitialized = false;
 
-        function initializeStripe() {
-            try {
-                if (stripeConfig.publishableKey === "YOUR_STRIPE_PUBLISHABLE_KEY") {
-                    console.warn("⚠️ Stripe not configured. Only COD available.");
-                    return false;
-                }
-                
-                stripe = Stripe(stripeConfig.publishableKey);
-                stripeInitialized = true;
-                console.log("✅ Stripe initialized");
-                return true;
-            } catch (error) {
-                console.error("❌ Stripe initialization error:", error);
-                return false;
-            }
-        }
 
-        async function processStripePayment(amount, orderData) {
-            if (!stripeInitialized) {
-                alert("⚠️ Online payment not configured. Please use Cash on Delivery.");
-                return false;
-            }
 
-            try {
-                // In production, you'll need a backend endpoint to create payment intent
-                // For now, this is a placeholder structure
-                
-                const response = await fetch('/api/create-payment-intent', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        amount: Math.round(amount * 100), // Stripe uses cents
-                        currency: 'egp',
-                        orderData: orderData
-                    })
-                });
-
-                const { clientSecret } = await response.json();
-
-                const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-                    payment_method: {
-                        card: elements.getElement('card'),
-                        billing_details: {
-                            name: orderData.customer.name,
-                            email: orderData.customer.email
-                        }
-                    }
-                });
-
-                if (error) {
-                    console.error("Payment failed:", error);
-                    alert("Payment failed: " + error.message);
-                    return false;
-                }
-
-                if (paymentIntent.status === 'succeeded') {
-                    console.log("✅ Payment successful!");
-                    return true;
-                }
-
-                return false;
-
-            } catch (error) {
-                console.error("❌ Payment processing error:", error);
-                alert("Payment processing error. Please try again or use Cash on Delivery.");
-                return false;
-            }
-        }
 
         async function sendOrderConfirmationEmail(orderData, orderId) {
             try {
@@ -6699,19 +6670,7 @@
         }
 
                 // Parse JWT token
-        function parseJwt(token) {
-            try {
-                const base64Url = token.split('.')[1];
-                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                }).join(''));
-                return JSON.parse(jsonPayload);
-            } catch (error) {
-                console.error('Error parsing JWT:', error);
-                return null;
-            }
-        }
+
 
         function switchAuthTab(tab) {
             // Update tab buttons
