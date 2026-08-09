@@ -10,6 +10,11 @@ h = index_path.read_text()
 h = h.replace('projectId: "kem-store"', 'projectId: "demo-kem-validation"', 1)
 h = h.replace('authDomain: "kem-store.firebaseapp.com"', 'authDomain: "demo-kem-validation.firebaseapp.com"', 1)
 h = h.replace('storageBucket: "kem-store.firebasestorage.app"', 'storageBucket: "demo-kem-validation.firebasestorage.app"', 1)
+h = h.replace(
+    'databaseURL: "https://kem-store-default-rtdb.europe-west1.firebasedatabase.app"',
+    'databaseURL: "https://demo-kem-validation-default-rtdb.firebaseio.com"',
+    1,
+)
 needle = """                db = firebase.database();
                 auth = firebase.auth();
                 cloudFunctions = firebase.functions();
@@ -22,6 +27,8 @@ replacement = needle + """                if (location.hostname === '127.0.0.1' 
 """
 if needle not in h:
     raise SystemExit('Firebase initialization anchor not found')
+if 'demo-kem-validation-default-rtdb' not in h:
+    raise SystemExit('Validation databaseURL rewrite failed')
 h = h.replace(needle, replacement, 1)
 index_path.write_text(h)
 
