@@ -3862,11 +3862,29 @@
         </div>
     </div>
 
+    <!-- Customer Account Modal -->
+    <div class="auth-modal" id="accountModal" role="dialog" aria-modal="true" aria-labelledby="accountModalTitle" aria-hidden="true">
+        <div class="auth-modal-content" style="max-width:760px;">
+            <button type="button" class="close-modal" onclick="closeAccountModal()" aria-label="Close account">×</button>
+            <h2 id="accountModalTitle" style="font-family:'Bebas Neue',sans-serif;font-size:2.5rem;margin-bottom:1rem;letter-spacing:.08em;">My Account</h2>
+            <div id="accountProfile" style="padding:1rem;background:#f7f7f7;margin-bottom:1.5rem;"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
+                <h3 style="margin:0;">Order History</h3>
+                <button type="button" class="btn-edit" onclick="loadCustomerOrders()">Refresh</button>
+            </div>
+            <div id="accountOrders" aria-live="polite"><p style="color:#666;">Loading orders…</p></div>
+            <div class="form-actions" style="margin-top:1.5rem;">
+                <button type="button" class="btn-delete" onclick="logoutUser()">Log Out</button>
+                <button type="button" class="btn-cancel" onclick="closeAccountModal()">Close</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Auth Modal -->
-    <div class="auth-modal" id="authModal">
+    <div class="auth-modal" id="authModal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle" aria-hidden="true">
         <div class="auth-modal-content">
             <button class="close-modal" onclick="closeAuthModal()">×</button>
-            <h2 style="font-family: 'Bebas Neue', sans-serif; font-size: 2.5rem; margin-bottom: 1.5rem; letter-spacing: 0.1em; text-align: center;">Welcome to KEM</h2>
+            <h2 id="authModalTitle" style="font-family: 'Bebas Neue', sans-serif; font-size: 2.5rem; margin-bottom: 1.5rem; letter-spacing: 0.1em; text-align: center;">Welcome to KEM</h2>
             
             <div class="auth-tabs">
                 <button class="auth-tab active" onclick="switchAuthTab('login')">Login</button>
@@ -3877,14 +3895,14 @@
             <form class="auth-form active" id="loginForm" onsubmit="handleLogin(event)">
                 <div class="auth-input-group">
                     <label>Email</label>
-                    <input type="text" id="loginIdentifier" placeholder="your@email.com" required>
+                    <input type="email" id="loginIdentifier" placeholder="your@email.com" autocomplete="email" required>
                 </div>
                 <div class="auth-input-group">
                     <label>Password</label>
                     <input type="password" id="loginPassword" placeholder="Enter your password" required>
                 </div>
                 <div style="text-align: right; margin-bottom: 1rem;">
-                    <a onclick="handleForgotPassword()" style="color: var(--accent); cursor: pointer; font-size: 0.9rem; text-decoration: underline;">Forgot Password?</a>
+                    <button type="button" onclick="handleForgotPassword()" style="border:0;background:none;color:var(--accent);font-size:.9rem;text-decoration:underline;">Forgot Password?</button>
                 </div>
                 <button type="submit" class="auth-submit">Login</button>
 
@@ -6948,20 +6966,46 @@
             }
         }
 
+        async function openAccountModal() {
+            if (!auth?.currentUser || !currentUser) { openAuthModal(); return; }
+            const modal=document.getElementById('accountModal');
+            const profile=document.getElementById('accountProfile');
+            profile.innerHTML=`<strong>${escapeHTML(currentUser.name||'Customer')}</strong><div style="color:#666;margin-top:.25rem;">${escapeHTML(currentUser.email||'')}</div>${currentUser.phone?`<div style="color:#666;">${escapeHTML(currentUser.phone)}</div>`:''}`;
+            modal.classList.add('active'); modal.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden';
+            modal.querySelector('.close-modal')?.focus();
+            await loadCustomerOrders();
+        }
+
+        function closeAccountModal() { const modal=document.getElementById('accountModal'); if(!modal)return; modal.classList.remove('active'); modal.setAttribute('aria-hidden','true'); document.body.style.overflow='auto'; }
+
+        async function loadCustomerOrders() {
+            const container=document.getElementById('accountOrders'); if(!container||!cloudFunctions)return; container.innerHTML='<p style="color:#666;">Loading orders…</p>';
+            try {
+                const getCustomerOrders=cloudFunctions.httpsCallable('getCustomerOrders'); const response=await getCustomerOrders(); const customerOrders=Array.isArray(response.data?.orders)?response.data.orders:[];
+                if(!customerOrders.length){container.innerHTML='<div style="padding:2rem;text-align:center;background:#f7f7f7;"><strong>No orders yet</strong><p style="color:#666;margin-top:.5rem;">Your KEM orders will appear here after checkout.</p></div>';return;}
+                container.innerHTML=customerOrders.map(order=>`<article style="border:1px solid var(--border);padding:1rem;margin-bottom:.75rem;"><div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;"><strong>${escapeHTML(order.id)}</strong><span class="status-badge status-${escapeHTML(order.status)}">${escapeHTML(order.status)}</span></div><div style="margin-top:.5rem;color:#666;">${escapeHTML(order.createdAt||order.date||'')}</div><div style="margin-top:.5rem;">${Number(order.itemCount||0)} item(s) · <strong>EGP ${Number(order.total||0).toFixed(2)}</strong></div></article>`).join('');
+            } catch(error) { console.error('Unable to load order history:',error); container.innerHTML='<p style="color:var(--accent);">Unable to load your orders. Please try again.</p>'; }
+        }
+
                 function updateAuthButton() {
             const button = document.getElementById('authButton');
             const buttonText = document.getElementById('authButtonText');
 
             if (currentUser) {
                 button.classList.add('logged-in');
-                buttonText.textContent = currentUser.name.split(' ')[0]; // First name only
+                buttonText.textContent = currentUser.name.split(' ')[0];
+                button.onclick = openAccountModal;
+                button.setAttribute('aria-label', 'Open my account');
             } else {
                 button.classList.remove('logged-in');
                 buttonText.textContent = 'Login';
+                button.onclick = openAuthModal;
+                button.setAttribute('aria-label', 'Log in or create account');
             }
         }
 
         async function logoutUser() {
+            closeAccountModal();
             currentUser = null;
             currentEmployee = null;
             if (auth) await auth.signOut();

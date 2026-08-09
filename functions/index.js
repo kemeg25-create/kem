@@ -473,6 +473,20 @@ exports.quoteOrder = onCall(async (request) => {
   };
 });
 
+exports.getCustomerOrders = onCall(async (request) => {
+  if (!request.auth?.uid) throw new HttpsError('unauthenticated', 'Customer authentication is required.');
+  const uid = request.auth.uid;
+  const snap = await db.ref('orders').once('value');
+  const orders = normalizeList(snap.val()).filter((order) => order?.customerUid === uid).sort((a, z) => String(z.createdAt || z.date || '').localeCompare(String(a.createdAt || a.date || ''))).slice(0, 50).map((order) => ({
+    id: cleanText(order.id, 80),
+    createdAt: order.createdAt || order.date || null,
+    status: cleanText(order.status, 30),
+    total: Math.max(0, normalizeNumber(order.total)),
+    itemCount: normalizeList(order.items).reduce((sum, item) => sum + Math.max(0, Math.floor(normalizeNumber(item.qty))), 0)
+  }));
+  return { orders };
+});
+
 exports.createOrder = onCall(async (request) => {
   const authenticatedCustomer = await requireVerifiedCustomer(request);
   const paymentMethod = cleanText(request.data?.paymentMethod, 40).toLowerCase();
