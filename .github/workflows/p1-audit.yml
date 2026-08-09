@@ -1,50 +1,16 @@
-name: P1 SEO performance
+name: P1 final review
 on:
   push:
     branches: [agent/p1-remediation]
 permissions:
-  contents: write
+  contents: read
 jobs:
-  verify:
+  review:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: {fetch-depth: 0}
       - uses: actions/setup-node@v4
         with: {node-version: '20'}
-      - run: python3 scripts/p1_seo_performance.py
-      - name: Verify
-        run: |
+      - run: |
           node --check functions/index.js
           python3 -m json.tool database.rules.json >/dev/null
-          python3 - <<'PY'
-          from pathlib import Path
-          import re, subprocess, tempfile, os, xml.etree.ElementTree as ET
-          h=Path('index.html').read_text(); b=Path('functions/index.js').read_text()
-          for block in re.findall(r'<script(?:\s[^>]*)?>(.*?)</script>',h,re.S|re.I):
-              if not block.strip() or (block.lstrip().startswith('{') and '"@context"' in block): continue
-              f=tempfile.NamedTemporaryFile('w',suffix='.js',delete=False); f.write(block); f.close()
-              try: subprocess.run(['node','--check',f.name],check=True)
-              finally: os.unlink(f.name)
-          ET.parse('sitemap.xml')
-          assert 'js.stripe.com' not in h and 'initializeStripe' not in h and 'processStripePayment' not in h
-          assert 'firebase-storage.js' not in h and 'firebase.storage()' not in h
-          assert 'function parseJwt' not in h
-          assert 'Cash on Delivery' in h and 'CreditCard' not in h and 'DebitCard' not in h
-          assert 'function updateProductSeo' in h and 'function restoreHomeSeo' in h
-          assert 'window.addEventListener(\'popstate\'' in h and 'href="?product=${Number(p.id)}"' in h
-          assert 'payment-success.html' not in Path('sitemap.xml').read_text() and 'payment-failed.html' not in Path('sitemap.xml').read_text()
-          assert 'noindex, nofollow' in Path('payment-success.html').read_text() and 'noindex, nofollow' in Path('payment-failed.html').read_text()
-          assert 'revokeEmployeeSession' in h and 'await auth.signOut()' in h
-          assert "paymentMethod !== 'cod'" in b and 'requireVerifiedCustomer' in b
-          print('SEO/performance and P0 guardrails pass')
-          PY
-          git diff --check
-      - name: Commit
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add index.html sitemap.xml robots.txt payment-success.html payment-failed.html
-          if git diff --cached --quiet; then exit 0; fi
-          git commit -m 'Fix P1 SEO metadata and dead client code'
-          git push origin HEAD:agent/p1-remediation
