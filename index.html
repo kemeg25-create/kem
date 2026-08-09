@@ -38,39 +38,24 @@
     
     <!-- Structured Data / JSON-LD -->
     <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "ClothingStore",
-      "name": "KEM Streetwear",
-      "description": "Premium Egyptian streetwear and urban fashion online store",
-      "url": "https://buykem.com",
-      "logo": "https://buykem.com/icon%20enhanced.png",
-      "image": "https://buykem.com/icon%20enhanced.png",
-      "email": "info@buykem.com",
-      "address": {
-        "@type": "PostalAddress",
-        "addressCountry": "EG"
-      },
-      "priceRange": "EGP 500 - EGP 2000",
-      "acceptedPaymentMethod": ["Cash"],
-      "currenciesAccepted": "EGP",
-      "paymentAccepted": "Cash on Delivery",
-      "sameAs": [
-        "https://instagram.com/kemstreetwear",
-        "https://facebook.com/kemstreetwear",
-        "https://twitter.com/kemstreetwear"
-      ]
-    }
-            window.addEventListener('popstate', () => {
-            const id=Number(new URL(window.location.href).searchParams.get('product'));
-            if(id) openProductDetail(id,{fromHistory:true}); else if(document.getElementById('productDetailModal')?.classList.contains('active')) closeProductDetail({fromHistory:true});
-        });
-
-        document.addEventListener('keydown', event => {
-            const dialog=document.querySelector('.form-modal.active,.auth-modal.active,.product-detail-modal.active');
-            if(event.key==='Escape'&&dialog){dialog.querySelector('.close-modal')?.click();return;}
-            if(event.key==='Tab'&&dialog){const focusable=[...dialog.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>el.offsetParent!==null);if(!focusable.length)return;const first=focusable[0],last=focusable[focusable.length-1];if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}}
-        });
+{
+  "@context": "https://schema.org",
+  "@type": "ClothingStore",
+  "name": "KEM Streetwear",
+  "description": "Premium Egyptian streetwear and urban fashion online store",
+  "url": "https://buykem.com",
+  "logo": "https://buykem.com/icon%20enhanced.png",
+  "image": "https://buykem.com/icon%20enhanced.png",
+  "address": {
+    "@type": "PostalAddress",
+    "addressCountry": "EG"
+  },
+  "acceptedPaymentMethod": [
+    "Cash"
+  ],
+  "currenciesAccepted": "EGP",
+  "paymentAccepted": "Cash on Delivery"
+}
     </script>
     
     <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Archivo:wght@300;400;600;800&display=swap" rel="stylesheet">
@@ -4455,6 +4440,37 @@
             socialLinks = socialLinks.filter(l => l.id !== id);
             renderSocialLinksContainer();
         }
+
+        window.addEventListener('popstate', () => {
+            const id = Number(new URL(window.location.href).searchParams.get('product'));
+            if (id) {
+                openProductDetail(id, { fromHistory: true });
+            } else if (document.getElementById('productDetailModal')?.classList.contains('active')) {
+                closeProductDetail({ fromHistory: true });
+            }
+        });
+
+        document.addEventListener('keydown', event => {
+            const dialog = document.querySelector('.form-modal.active,.auth-modal.active,.product-detail-modal.active');
+            if (!dialog) return;
+            if (event.key === 'Escape') {
+                dialog.querySelector('.close-modal')?.click();
+                return;
+            }
+            if (event.key !== 'Tab') return;
+            const focusable = [...dialog.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')]
+                .filter(el => el.offsetParent !== null);
+            if (!focusable.length) return;
+            const first = focusable[0];
+            const last = focusable[focusable.length - 1];
+            if (event.shiftKey && document.activeElement === first) {
+                event.preventDefault();
+                last.focus();
+            } else if (!event.shiftKey && document.activeElement === last) {
+                event.preventDefault();
+                first.focus();
+            }
+        });
 
         // Close dropdown when clicking outside
         document.addEventListener('click', function(event) {
