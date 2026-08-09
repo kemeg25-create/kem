@@ -1,0 +1,209 @@
+name: P1 structured data repair
+on:
+  push:
+    branches: [agent/p1-remediation]
+permissions:
+  contents: write
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-node@v4
+        with: {node-version: '20'}
+      - name: Repair JSON-LD and restore executable handlers
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, json
+          p=Path('index.html'); h=p.read_text()
+          blocks=list(re.finditer(r'<script\s+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>', h, re.S|re.I))
+          if not blocks: raise SystemExit('No JSON-LD blocks found')
+          print('JSON-LD blocks before repair:', len(blocks))
+          contaminated=[]
+          for i,m in enumerate(blocks,1):
+              body=m.group(1).strip()
+              try: json.loads(body)
+              except Exception as e:
+                  contaminated.append(i); print(f'block {i} invalid before repair: {e}')
+          if contaminated != [1]: raise SystemExit(f'Unexpected contaminated blocks: {contaminated}')
+
+          # The first block contains a valid store object followed by two inert JS listeners.
+          first=blocks[0]
+          body=first.group(1)
+          marker="        window.addEventListener('popstate', () => {"
+          if marker not in body or "document.addEventListener('keydown', event => {" not in body:
+              raise SystemExit('Expected contaminated handlers not found')
+          json_text=body[:body.index(marker)].strip()
+          data=json.loads(json_text)
+
+          # Keep only claims grounded by the current storefront/static configuration.
+          for key in ('email','sameAs','priceRange'):
+              data.pop(key, None)
+          data['acceptedPaymentMethod']=['Cash']
+          data['currenciesAccepted']='EGP'
+          data['paymentAccepted']='Cash on Delivery'
+          clean_json=json.dumps(data, indent=2, ensure_ascii=False)
+          replacement='<script type="application/ld+json">\n'+clean_json+'\n    </script>'
+          h=h[:first.start()]+replacement+h[first.end():]
+
+          popstate="""        window.addEventListener('popstate', () => {
+              const id = Number(new URL(window.location.href).searchParams.get('product'));
+              if (id) {
+                  openProductDetail(id, { fromHistory: true });
+              } else if (document.getElementById('productDetailModal')?.classList.contains('active')) {
+                  closeProductDetail({ fromHistory: true });
+              }
+          });
+
+"""
+          keydown="""        document.addEventListener('keydown', event => {
+              const dialog = document.querySelector('.form-modal.active,.auth-modal.active,.product-detail-modal.active');
+              if (!dialog) return;
+              if (event.key === 'Escape') {
+                  dialog.querySelector('.close-modal')?.click();
+                  return;
+              }
+              if (event.key !== 'Tab') return;
+              const focusable = [...dialog.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')]
+                  .filter(el => el.offsetParent !== null);
+              if (!focusable.length) return;
+              const first = focusable[0];
+              const last = focusable[focusable.length - 1];
+              if (event.shiftKey && document.activeElement === first) {
+                  event.preventDefault();
+                  last.focus();
+              } else if (!event.shiftKey && document.activeElement === last) {
+                  event.preventDefault();
+                  first.focus();
+              }
+          });
+
+"""
+          wiring='        // Close dropdown when clicking outside\n'
+          if wiring not in h: raise SystemExit('Executable event-wiring marker missing')
+          # There must be no executable copies remaining after removal from JSON-LD.
+          if "window.addEventListener('popstate'" in h or "document.addEventListener('keydown', event => {" in h:
+              raise SystemExit('Unexpected duplicate critical handlers before insertion')
+          h=h.replace(wiring,popstate+keydown+wiring,1)
+          p.write_text(h)
+          print('Structured data repaired and handlers restored once')
+          PY
+      - name: Validate JSON-LD and executable JavaScript
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,json,subprocess,tempfile,os
+          h=Path('index.html').read_text()
+          json_blocks=re.findall(r'<script\s+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',h,re.S|re.I)
+          assert json_blocks, 'no JSON-LD'
+          print('JSON-LD block count:',len(json_blocks))
+          for i,body in enumerate(json_blocks,1):
+              obj=json.loads(body)
+              text=body
+              assert 'addEventListener' not in text and 'document.' not in text and 'window.' not in text and '=>' not in text
+              print('JSON-LD',i,'type=',obj.get('@type'))
+          assert len(json_blocks)==1
+          store=json.loads(json_blocks[0])
+          assert store.get('@context')=='https://schema.org'
+          assert store.get('@type')=='ClothingStore'
+          assert store.get('name')=='KEM Streetwear'
+          assert store.get('url')=='https://buykem.com'
+          assert store.get('address',{}).get('addressCountry')=='EG'
+          assert store.get('acceptedPaymentMethod')==['Cash']
+          assert store.get('paymentAccepted')=='Cash on Delivery'
+          for unsupported in ('telephone','email','sameAs','aggregateRating','review','priceRange'):
+              assert unsupported not in store
+          normal=[]
+          for m in re.finditer(r'<script(?![^>]*type=["\']application/ld\+json["\'])[^>]*>(.*?)</script>',h,re.S|re.I):
+              body=m.group(1)
+              if not body.strip(): continue
+              f=tempfile.NamedTemporaryFile('w',suffix='.js',delete=False); f.write(body); f.close()
+              try: subprocess.run(['node','--check',f.name],check=True)
+              finally: os.unlink(f.name)
+              normal.append(body)
+          executable='\n'.join(normal)
+          assert executable.count("window.addEventListener('popstate'")==1
+          assert executable.count("document.addEventListener('keydown', event => {")==1
+          assert all("window.addEventListener('popstate'" not in b and "document.addEventListener('keydown', event => {" not in b for b in json_blocks)
+          print('normal inline JS blocks parsed:',len(normal))
+          print('critical handler uniqueness passed')
+          PY
+      - name: Focused P1 behavior and DOM checks
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from html.parser import HTMLParser
+          import re
+          h=Path('index.html').read_text(); b=Path('functions/index.js').read_text()
+          # Product history/deep links/metadata
+          assert 'function openProductDetail(productId, options = {})' in h
+          assert "if (!options.fromHistory)" in h
+          assert "url.searchParams.set('product', product.id)" in h
+          assert "closeProductDetail({ fromHistory: true })" in h
+          assert "openProductDetail(id, { fromHistory: true })" in h
+          assert 'initialProductId' in h and "searchParams.get('product')" in h
+          assert 'function updateProductSeo' in h and 'function restoreHomeSeo' in h
+          # Dialog keyboard/focus behavior
+          assert "event.key === 'Escape'" in h
+          assert "event.key !== 'Tab'" in h
+          assert 'event.shiftKey && document.activeElement === first' in h
+          assert '.form-modal.active,.auth-modal.active,.product-detail-modal.active' in h
+          for token in ('id="accountModal"','id="authModal"','id="employeeModal"','id="productDetailModal"'):
+              assert token in h, token
+          # Core P1 flows
+          for token in ('id="mobileNavToggle"','id="shopSearch"','function renderCart','function openCheckout','function openAccountModal','exports.getCustomerOrders'):
+              assert token in h or token in b, token
+          # Duplicate IDs
+          class P(HTMLParser):
+              def __init__(self): super().__init__(); self.ids=[]
+              def handle_starttag(self,tag,attrs):
+                  d=dict(attrs)
+                  if d.get('id'): self.ids.append(d['id'])
+          p=P(); p.feed(h); dup=sorted({x for x in p.ids if p.ids.count(x)>1})
+          assert not dup, 'duplicate ids: '+','.join(dup)
+          print('Focused product/dialog/mobile/search/cart/checkout/account checks passed')
+          PY
+      - name: Re-run P0 and P1 guardrails
+        run: |
+          npm --prefix functions install --ignore-scripts --no-audit --no-fund
+          npm --prefix functions test --if-present
+          node --check functions/index.js
+          python3 -m json.tool database.rules.json >/dev/null
+          python3 -m json.tool firebase.json >/dev/null
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re
+          h=Path('index.html').read_text(); b=Path('functions/index.js').read_text(); r=json.loads(Path('database.rules.json').read_text())['rules']
+          # P0
+          assert 'revokeEmployeeSession' in h and 'await auth.signOut()' in h
+          assert 'exports.revokeEmployeeSession' in b and 'auth.revokeRefreshTokens' in b
+          assert 'tokensValidAfterTime' in b and 'auth_time' in b
+          assert 'requireVerifiedCustomer' in b and 'email_verified' in b
+          assert "paymentMethod !== 'cod'" in b
+          assert "db.ref('/').transaction" in b and 'product.stock = currentStock - item.quantity' in b
+          assert 'root.counters.orderNumbers' in b and 'root.coupons[key].used' in b
+          assert 'request.data?.price' not in b
+          assert r['orders']['.read'] is False and r['orders']['.write'] is False
+          assert r['employeeRoles']['.read'] is False and r['coupons']['.read'] is False
+          # P1
+          assert len(re.findall(r'function\s+renderShopProducts\s*\(',h))==1
+          assert len(re.findall(r'function\s+filterByCategory\s*\(',h))==1
+          for token in ('productSizes','productColors','detailGallery','detailSizes','detailColors','id="checkoutStatus"',':focus-visible','logo-240.png'):
+              assert token in h, token
+          assert 'requestedSize' in b and 'requestedColor' in b
+          assert 'exports.getCustomerOrders' in b and 'order?.customerUid === uid' in b
+          assert 'exports.uploadProductImage' in b
+          assert 'js.stripe.com' not in h and 'firebase-storage.js' not in h
+          print('P0/P1 regression guardrails passed')
+          PY
+          git diff --check
+      - name: Commit focused fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git diff --cached --check
+          git commit -m 'Repair JSON-LD and restore dialog history handlers'
+          git push origin HEAD:agent/p1-remediation
