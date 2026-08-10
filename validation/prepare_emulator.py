@@ -30,6 +30,23 @@ if needle not in h:
 if 'demo-kem-validation-default-rtdb' not in h:
     raise SystemExit('Validation databaseURL rewrite failed')
 h = h.replace(needle, replacement, 1)
+
+# Candidate P1 regression fix under validation: keep the existing two-column stats layout,
+# but allow grid tracks/items to shrink within narrow phone viewports.
+responsive_anchor = """            .section-title { font-size:2.5rem; }
+
+            .hero-title {
+"""
+responsive_fix = """            .section-title { font-size:2.5rem; }
+            .about-content, .about-content > * { min-width:0; }
+            .stats { grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
+            .stat-item { padding:1rem; }
+
+            .hero-title {
+"""
+if responsive_anchor not in h:
+    raise SystemExit('Mobile responsive anchor not found')
+h = h.replace(responsive_anchor, responsive_fix, 1)
 index_path.write_text(h)
 
 config = json.loads(firebase_path.read_text())
@@ -44,4 +61,4 @@ config['emulators'] = {
     'singleProjectMode': True,
 }
 firebase_path.write_text(json.dumps(config, indent=2) + '\n')
-print('Prepared isolated demo-kem-validation emulator runtime')
+print('Prepared isolated demo-kem-validation emulator runtime with candidate mobile overflow fix')
