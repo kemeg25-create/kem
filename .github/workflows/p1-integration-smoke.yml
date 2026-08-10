@@ -59,7 +59,8 @@ jobs:
           tx_anchor="  const transaction = await db.ref('/').transaction((root) => {"
           if f.count(tx_anchor) != 1:
               raise SystemExit('createOrder root transaction anchor not unique')
-          f=f.replace(tx_anchor,"  await db.ref('/').once('value');\n\n"+tx_anchor,1)
+          tx_instrument=tx_anchor+"\n    console.log('VALIDATION_CREATE_ORDER_TX', JSON.stringify({ rootNull: root === null, keys: root ? Object.keys(root) : [], products: root?.products, rawItems }));"
+          f=f.replace(tx_anchor,tx_instrument,1)
           fn.write_text(f)
           PY
           node --check functions/index.js
