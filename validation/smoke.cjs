@@ -186,13 +186,11 @@ async function adminRoot() {
     fail('Cart quantity update works through rendered control', 'No increment button found');
   }
 
-  // Coupon UI is part of the rendered cart summary. Exercise it before entering checkout.
   await page.fill('#couponInput', 'SMOKE10');
   await page.getByRole('button', { name: 'Apply', exact: true }).click();
   await page.waitForFunction(() => appliedCoupon?.code === 'SMOKE10');
   assert(await page.evaluate(() => appliedCoupon?.serverValidated === true), 'Valid coupon is accepted through cart UI and server-validated');
 
-  // Checkout, saved address, quote, coupon reflection, manipulation rejection.
   await page.evaluate(() => checkout());
   await page.waitForSelector('#checkoutPage.active');
   await page.waitForFunction(() => document.querySelector('#checkoutStatus')?.textContent !== 'Calculating your order total…');
@@ -229,6 +227,12 @@ async function adminRoot() {
   const beforeRoot = await adminRoot();
   const beforeStock = beforeRoot.products[0].stock;
   const beforeUsed = beforeRoot.coupons[0].used;
+  const beforeClient = await page.evaluate(() => ({
+    cart: cart.map(item => ({ id: item.id, quantity: item.quantity, size: item.size, color: item.color })),
+    quote: lastCheckoutQuote ? { total: lastCheckoutQuote.total, items: lastCheckoutQuote.items } : null,
+    coupon: appliedCoupon,
+  }));
+  console.log('VALIDATION_BEFORE_ORDER', JSON.stringify({ beforeClient, products: beforeRoot.products, coupons: beforeRoot.coupons }));
   await page.getByRole('button', { name: /place order/i }).click();
   await page.waitForTimeout(1200);
   const afterRoot = await adminRoot();
