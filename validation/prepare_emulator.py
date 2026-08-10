@@ -12,7 +12,7 @@ h = h.replace('authDomain: "kem-store.firebaseapp.com"', 'authDomain: "demo-kem-
 h = h.replace('storageBucket: "kem-store.firebasestorage.app"', 'storageBucket: "demo-kem-validation.firebasestorage.app"', 1)
 h = h.replace(
     'databaseURL: "https://kem-store-default-rtdb.europe-west1.firebasedatabase.app"',
-    'databaseURL: "https://demo-kem-validation-default-rtdb.firebaseio.com"',
+    'databaseURL: "https://demo-kem-validation.firebaseio.com"',
     1,
 )
 needle = """                db = firebase.database();
@@ -27,7 +27,7 @@ replacement = needle + """                if (location.hostname === '127.0.0.1' 
 """
 if needle not in h:
     raise SystemExit('Firebase initialization anchor not found')
-if 'demo-kem-validation-default-rtdb' not in h:
+if 'databaseURL: "https://demo-kem-validation.firebaseio.com"' not in h:
     raise SystemExit('Validation databaseURL rewrite failed')
 h = h.replace(needle, replacement, 1)
 
@@ -99,7 +99,7 @@ config['emulators'] = {
     'hosting': {'port': 5000},
     'storage': {'port': 9199},
     'ui': {'enabled': False},
-    'singleProjectMode': True,
+    'singleProjectMode': False,
 }
 firebase_path.write_text(json.dumps(config, indent=2) + '\n')
 print('Prepared isolated demo-kem-validation emulator runtime with candidate P1 fixes')
