@@ -43,6 +43,11 @@ jobs:
           h=h.replace("require('../functions/node_modules/firebase-admin/app')", "require('firebase-admin/app')")
           h=h.replace("require('../functions/node_modules/firebase-admin/database')", "require('firebase-admin/database')")
           h=h.replace("require('../functions/node_modules/firebase-admin/storage')", "require('firebase-admin/storage')")
+          old="await page.evaluate(() => openAuthModal());\n  await page.fill('#loginIdentifier', email);"
+          new="await page.evaluate(() => { openAuthModal(); switchAuthTab('login'); });\n  await page.fill('#loginIdentifier', email);"
+          if old not in h:
+              raise SystemExit('loginCustomer harness anchor not found')
+          h=h.replace(old,new,1)
           p.write_text(h)
           PY
       - name: Start Firebase Emulator Suite
