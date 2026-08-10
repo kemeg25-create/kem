@@ -34,7 +34,9 @@ jobs:
       - name: Prepare isolated emulator runtime
         run: |
           python3 validation/prepare_emulator.py
+          python3 validation/patch_functions_runtime.py
           python3 -m json.tool firebase.json >/dev/null
+          node --check functions/index.js
           python3 - <<'PY'
           from pathlib import Path
           p=Path('validation/smoke.cjs')
@@ -46,29 +48,8 @@ jobs:
           new="await page.evaluate(() => { openAuthModal(); switchAuthTab('login'); });\n  await page.fill('#loginIdentifier', email);"
           if old not in h:
               raise SystemExit('loginCustomer harness anchor not found')
-          h=h.replace(old,new,1)
-          p.write_text(h)
-
-          fn=Path('functions/index.js')
-          f=fn.read_text()
-          old_fn='initializeApp();'
-          new_fn="initializeApp({ databaseURL: 'https://demo-kem-validation-default-rtdb.firebaseio.com' });"
-          if f.count(old_fn) != 1:
-              raise SystemExit('Functions initializeApp validation anchor not unique')
-          f=f.replace(old_fn,new_fn,1)
-          tx_anchor="  const transaction = await db.ref('/').transaction((root) => {"
-          if f.count(tx_anchor) != 1:
-              raise SystemExit('createOrder root transaction anchor not unique')
-          seeded="""  const orderRootRef = db.ref('/');
-  const initialOrderRoot = (await orderRootRef.once('value')).val();
-  const transaction = await orderRootRef.transaction((root) => {
-    if (root === null && initialOrderRoot !== null) {
-      root = JSON.parse(JSON.stringify(initialOrderRoot));
-    }"""
-          f=f.replace(tx_anchor,seeded,1)
-          fn.write_text(f)
+          p.write_text(h.replace(old,new,1))
           PY
-          node --check functions/index.js
       - name: Start Firebase Emulator Suite
         run: |
           nohup npx firebase emulators:start --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO > /tmp/kem-emulator.log 2>&1 &
