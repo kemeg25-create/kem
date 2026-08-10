@@ -55,7 +55,12 @@ jobs:
           new_fn="initializeApp({ databaseURL: 'https://demo-kem-validation-default-rtdb.firebaseio.com' });"
           if f.count(old_fn) != 1:
               raise SystemExit('Functions initializeApp validation anchor not unique')
-          fn.write_text(f.replace(old_fn,new_fn,1))
+          f=f.replace(old_fn,new_fn,1)
+          tx_anchor="  const transaction = await db.ref('/').transaction((root) => {"
+          if f.count(tx_anchor) != 1:
+              raise SystemExit('createOrder root transaction anchor not unique')
+          f=f.replace(tx_anchor,"  await db.ref('/').once('value');\n\n"+tx_anchor,1)
+          fn.write_text(f)
           PY
           node --check functions/index.js
       - name: Start Firebase Emulator Suite
