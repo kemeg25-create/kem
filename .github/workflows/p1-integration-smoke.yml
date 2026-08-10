@@ -43,12 +43,16 @@ jobs:
           h=h.replace("require('../functions/node_modules/firebase-admin/app')", "require('firebase-admin/app')")
           h=h.replace("require('../functions/node_modules/firebase-admin/database')", "require('firebase-admin/database')")
           h=h.replace("require('../functions/node_modules/firebase-admin/storage')", "require('firebase-admin/storage')")
+          h=h.replace("databaseURL: 'http://127.0.0.1:9000?ns=demo-kem-validation-default-rtdb'", "databaseURL: 'http://127.0.0.1:9000?ns=demo-kem-validation'")
           old="await page.evaluate(() => openAuthModal());\n  await page.fill('#loginIdentifier', email);"
           new="await page.evaluate(() => { openAuthModal(); switchAuthTab('login'); });\n  await page.fill('#loginIdentifier', email);"
           if old not in h:
               raise SystemExit('loginCustomer harness anchor not found')
           h=h.replace(old,new,1)
           p.write_text(h)
+          seed=Path('validation/seed.cjs')
+          s=seed.read_text().replace('ns=${projectId}-default-rtdb', 'ns=${projectId}')
+          seed.write_text(s)
           PY
       - name: Start Firebase Emulator Suite
         run: |
@@ -56,7 +60,8 @@ jobs:
           echo $! > /tmp/kem-emulator.pid
           for i in $(seq 1 90); do
             if curl -fsS http://127.0.0.1:5000/ >/dev/null 2>&1 && curl -fsS http://127.0.0.1:9099/ >/dev/null 2>&1; then
-              echo 'Emulators ready'
+              curl -fsS -X PUT -H 'Content-Type: application/json' --data-binary @database.rules.json 'http://127.0.0.1:9000/.settings/rules.json?ns=demo-kem-validation' >/dev/null
+              echo 'Emulators ready with P0 RTDB rules on validation namespace'
               exit 0
             fi
             sleep 2
@@ -93,7 +98,7 @@ jobs:
       - name: Restore runtime-only patches and rerun P0/P1 guards
         if: always()
         run: |
-          git checkout -- index.html firebase.json validation/smoke.cjs
+          git checkout -- index.html firebase.json validation/smoke.cjs validation/seed.cjs
           rm -f package.json package-lock.json firebase-debug.log database-debug.log ui-debug.log
           rm -rf node_modules functions/node_modules functions/package-lock.json
           node --check functions/index.js
