@@ -79,7 +79,6 @@ async function adminRoot() {
   assert((await page.locator('#shopProductsGrid .product-card').count()) === 2, 'Homepage renders seeded products');
   assert(pageErrors.length === 0, 'Homepage has no uncaught JavaScript errors', pageErrors.join(' | '));
 
-  // Responsive rendering on the real page.
   for (const width of [360, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.waitForTimeout(150);
@@ -87,14 +86,12 @@ async function adminRoot() {
     assert(m.sw <= m.iw + 2, `No page-level horizontal overflow at ${width}px`, `${m.sw}/${m.iw}`);
   }
 
-  // Mobile navigation.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.click('#mobileNavToggle');
   assert(await page.locator('#primaryNav').evaluate(el => el.classList.contains('mobile-open')), 'Mobile navigation opens');
   await page.click('#mobileNavToggle');
   assert(!(await page.locator('#primaryNav').evaluate(el => el.classList.contains('mobile-open'))), 'Mobile navigation closes');
 
-  // Search and category filtering.
   await page.fill('#shopSearch', 'Alpha');
   await page.waitForTimeout(100);
   assert((await page.locator('#shopProductsGrid .product-card').count()) === 1, 'Product search filters results');
@@ -103,7 +100,6 @@ async function adminRoot() {
   assert((await page.locator('#shopProductsGrid .product-card').count()) === 1, 'Category filter works');
   await page.getByRole('button', { name: 'All' }).click();
 
-  // Product, gallery, deep-link, history, metadata.
   await page.locator('#shopProductsGrid .product-card').first().click();
   await page.waitForSelector('#productDetailModal.active');
   assert(new URL(page.url()).searchParams.get('product') === '1', 'Product opening creates ?product=<id> URL');
@@ -126,7 +122,6 @@ async function adminRoot() {
   assert((await page.locator('#detailName').textContent()).includes('Validation Beta Hoodie'), 'Direct product deep link opens correct product');
   await page.keyboard.press('Escape');
 
-  // Auth dialog focus trap.
   await page.evaluate(() => openAuthModal());
   await page.waitForSelector('#authModal.active');
   const focusInfo = await page.evaluate(() => {
@@ -140,7 +135,6 @@ async function adminRoot() {
   await page.keyboard.press('Escape');
   assert(!(await page.locator('#authModal').evaluate(el => el.classList.contains('active'))), 'Escape closes login/signup dialog');
 
-  // Signup against Auth + RTDB emulators.
   await page.evaluate(() => { openAuthModal(); switchAuthTab('signup'); });
   await page.fill('#signupName', 'Smoke Signup');
   await page.fill('#signupEmail', 'signup-smoke@example.com');
@@ -154,12 +148,10 @@ async function adminRoot() {
   await signOut(page);
   ok('Customer logout works after signup');
 
-  // Password reset request uses Auth emulator.
   await page.evaluate(() => { window.prompt = () => 'customer@example.com'; return handleForgotPassword(); });
   await page.waitForTimeout(250);
   assert(dialogs.some(d => d.includes('password reset email has been sent')), 'Password reset flow starts correctly');
 
-  // Verified customer login and account isolation.
   await loginCustomer(page);
   assert(await page.evaluate(() => firebase.auth().currentUser.emailVerified), 'Verified customer login succeeds');
   await page.evaluate(() => openAccountModal());
@@ -170,7 +162,6 @@ async function adminRoot() {
   await page.keyboard.press('Escape');
   assert(!(await page.locator('#accountModal').evaluate(el => el.classList.contains('active'))), 'Escape closes customer account dialog');
 
-  // Variant requirements and cart behavior.
   await page.locator('#shopProductsGrid .product-card').first().click();
   await page.waitForSelector('#productDetailModal.active');
   const alertCountBeforeVariant = dialogs.length;
@@ -195,7 +186,13 @@ async function adminRoot() {
     fail('Cart quantity update works through rendered control', 'No increment button found');
   }
 
-  // Checkout, saved address, quote, coupons, manipulation rejection.
+  // Coupon UI is part of the rendered cart summary. Exercise it before entering checkout.
+  await page.fill('#couponInput', 'SMOKE10');
+  await page.getByRole('button', { name: 'Apply', exact: true }).click();
+  await page.waitForFunction(() => appliedCoupon?.code === 'SMOKE10');
+  assert(await page.evaluate(() => appliedCoupon?.serverValidated === true), 'Valid coupon is accepted through cart UI and server-validated');
+
+  // Checkout, saved address, quote, coupon reflection, manipulation rejection.
   await page.evaluate(() => checkout());
   await page.waitForSelector('#checkoutPage.active');
   await page.waitForFunction(() => document.querySelector('#checkoutStatus')?.textContent !== 'Calculating your order total…');
@@ -203,10 +200,7 @@ async function adminRoot() {
   assert(await page.locator('#savedAddressesSection').isVisible(), 'Saved addresses render for authenticated user');
   await page.locator('#savedAddressesList button').first().click();
   assert((await page.inputValue('#checkoutAddress')) === '1 Validation Street', 'Saved address selection fills checkout form');
-  await page.fill('#couponInput', 'SMOKE10');
-  await page.getByRole('button', { name: 'Apply', exact: true }).click();
-  await page.waitForTimeout(250);
-  assert((await page.locator('#checkoutCouponRow').evaluate(el => getComputedStyle(el).display)) !== 'none', 'Valid coupon is accepted and reflected in server quote');
+  assert((await page.locator('#checkoutCouponRow').evaluate(el => getComputedStyle(el).display)) !== 'none', 'Validated coupon is reflected in checkout quote');
 
   const invalidCalls = await page.evaluate(async () => {
     const quote = cloudFunctions.httpsCallable('quoteOrder');
@@ -220,14 +214,12 @@ async function adminRoot() {
   assert(invalidCalls.stock, 'Invalid stock/cart manipulation is rejected server-side');
   assert(invalidCalls.coupon, 'Exhausted coupon is rejected server-side');
 
-  // Ensure quote failure disables ordering and cannot present false success.
   await page.evaluate(async () => { cart[0].quantity = 99; await renderCheckoutSummary(); });
   assert(await page.locator('.place-order-btn').isDisabled(), 'Backend quote failure disables Place Order');
   assert((await page.locator('#checkoutTotal').textContent()).includes('Unable'), 'Checkout shows backend quote failure instead of false success');
   await page.evaluate(async () => { cart[0].quantity = 1; await renderCheckoutSummary(); });
   await page.waitForFunction(() => !document.querySelector('.place-order-btn').disabled);
 
-  // Successful COD order through UI, then verify authoritative inventory/order/coupon mutation via Admin SDK.
   await page.fill('#checkoutName', 'Customer One');
   await page.fill('#checkoutEmail', 'customer@example.com');
   await page.fill('#checkoutPhone', '+201000000001');
@@ -245,7 +237,6 @@ async function adminRoot() {
   assert(afterRoot.products[0].stock === beforeStock - 1, 'Successful order decrements inventory atomically');
   assert(afterRoot.coupons[0].used === beforeUsed + 1, 'Successful coupon order increments coupon usage atomically');
 
-  // Unverified customer cannot checkout.
   await signOut(page);
   await page.evaluate(async () => auth.signInWithEmailAndPassword('unverified@example.com', PASSWORD));
   await page.evaluate(() => { cart = [{ id: 1, name: 'Validation Alpha Tee', price: 500, stock: 5, quantity: 1, size: 'M', color: 'Black' }]; });
@@ -255,7 +246,6 @@ async function adminRoot() {
   assert(!(await page.locator('#checkoutPage').evaluate(el => el.classList.contains('active'))) || checkoutStateBefore, 'Checkout enforces verified-email customer state');
   await signOut(page);
 
-  // Employee authorization: customer denied, unverified employee denied, authorized employee allowed.
   await loginEmployee(page, 'customer@example.com');
   await page.waitForTimeout(500);
   assert(!(await page.locator('#employeeDashboard').evaluate(el => el.classList.contains('active'))), 'Unauthorized customer cannot enter employee dashboard');
@@ -269,7 +259,6 @@ async function adminRoot() {
   assert((await page.locator('.dashboard-header h1').textContent()).includes('Employee'), 'Employee login and protected dashboard loading succeed');
   assert((await page.evaluate(() => orders.length)) >= 2, 'Protected order data loads for authorized employee');
 
-  // Employee role restrictions and protected writes via the same client callable layer used by the UI.
   const employeeBackend = await page.evaluate(async () => {
     const adminWrite = cloudFunctions.httpsCallable('adminWrite');
     const updateOrderFn = cloudFunctions.httpsCallable('updateOrder');
@@ -294,13 +283,11 @@ async function adminRoot() {
   const [storedFiles] = await getStorage().bucket().getFiles({ prefix: 'products/' });
   assert(storedFiles.length >= 1, 'Product image exists in Storage emulator');
 
-  // Employee modal keyboard behavior is expected to behave like other dialogs.
   await page.evaluate(() => { document.getElementById('employeeDashboard').classList.remove('active'); document.getElementById('mainSite').style.display='block'; document.getElementById('mainNav').style.display='flex'; openEmployeeModal(); });
   await page.keyboard.press('Escape');
   const employeeModalClosedByEscape = !(await page.locator('#employeeModal').evaluate(el => el.classList.contains('active')));
   assert(employeeModalClosedByEscape, 'Escape closes employee login dialog');
 
-  // Re-enter as employee, then logout must revoke/sign out and protected functions must stop working.
   await page.evaluate(async () => { if (auth.currentUser) await auth.signOut(); closeEmployeeModal(); });
   await loginEmployee(page, 'employee@example.com');
   await page.waitForSelector('#employeeDashboard.active', { timeout: 15000 });
@@ -311,7 +298,6 @@ async function adminRoot() {
   });
   assert(protectedAfterLogout, 'Protected Functions reject session after employee logout');
 
-  // Manager settings/categories/coupon persistence.
   await loginEmployee(page, 'manager@example.com');
   await page.waitForSelector('#employeeDashboard.active', { timeout: 15000 });
   const managerWrite = await page.evaluate(async () => {
@@ -327,7 +313,6 @@ async function adminRoot() {
   await page.evaluate(() => logoutEmployee());
   await page.waitForFunction(() => !firebase.auth().currentUser);
 
-  // CEO-only role management allowed to CEO.
   await loginEmployee(page, 'ceo@example.com');
   await page.waitForSelector('#employeeDashboard.active', { timeout: 15000 });
   const ceoAllowed = await page.evaluate(async () => {
@@ -337,7 +322,6 @@ async function adminRoot() {
   });
   assert(ceoAllowed, 'CEO-only employee-role functionality remains allowed to CEO');
 
-  // Dashboard responsive rendering and table containment.
   for (const width of [360, 390, 768, 1024, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.waitForTimeout(120);
@@ -345,7 +329,6 @@ async function adminRoot() {
     assert(m.active && m.sw <= m.iw + 2, `Dashboard has no page-level horizontal overflow at ${width}px`, `${m.sw}/${m.iw}`);
   }
 
-  // Google integration: verify configured code and whether GIS rendered in this localhost environment.
   await page.evaluate(() => { document.getElementById('employeeDashboard').classList.remove('active'); document.getElementById('mainSite').style.display='block'; document.getElementById('mainNav').style.display='flex'; openAuthModal(); });
   await page.waitForTimeout(1000);
   const googleState = await page.evaluate(() => ({
@@ -356,7 +339,6 @@ async function adminRoot() {
   else ok('Google auth integration code present but OAuth rendering not fully testable on emulator host', JSON.stringify(googleState));
   await page.keyboard.press('Escape');
 
-  // Missing assets / critical localhost network failures are regressions; external OAuth/CDN failures are reported separately.
   const criticalFailures = requestFailures.filter(x => x.includes('127.0.0.1') || x.includes('/favicon-64.png') || x.includes('/logo-240.png'));
   assert(criticalFailures.length === 0, 'No critical local asset/network request failures', criticalFailures.join(' | '));
   assert(pageErrors.length === 0, 'No uncaught browser runtime errors during smoke tests', pageErrors.join(' | '));
