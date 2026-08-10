@@ -59,10 +59,13 @@ jobs:
           tx_anchor="  const transaction = await db.ref('/').transaction((root) => {"
           if f.count(tx_anchor) != 1:
               raise SystemExit('createOrder root transaction anchor not unique')
-          # RTDB transaction callbacks may initially receive null before server state is known.
-          # Returning null is a no-op candidate: if the remote root is non-null the transaction
-          # conflicts and retries with server state; if the database is actually empty no data is created.
-          f=f.replace(tx_anchor, tx_anchor+"\n    if (root === null) return null;", 1)
+          seeded="""  const orderRootRef = db.ref('/');
+  const initialOrderRoot = (await orderRootRef.once('value')).val();
+  const transaction = await orderRootRef.transaction((root) => {
+    if (root === null && initialOrderRoot !== null) {
+      root = JSON.parse(JSON.stringify(initialOrderRoot));
+    }"""
+          f=f.replace(tx_anchor,seeded,1)
           fn.write_text(f)
           PY
           node --check functions/index.js
