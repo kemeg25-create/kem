@@ -1,0 +1,675 @@
+from pathlib import Path
+
+path = Path('index.html')
+h = path.read_text()
+assert 'P2.3 — COLLECTION / SHOP' not in h
+
+reduced_motion_anchor = '''        @media (prefers-reduced-motion: reduce) {
+            #home .cta-button,
+            .home-product-media img { transition: none !important; }
+        }
+
+    </style>'''
+assert reduced_motion_anchor in h
+
+p23_css = r'''
+
+        /* P2.3 — COLLECTION / SHOP */
+        #shop.kem-shop {
+            padding: var(--space-96) var(--page-gutter) var(--space-128);
+            background: var(--color-off-white);
+        }
+
+        .shop-shell,
+        .collection-page-shell {
+            width: 100%;
+            max-width: var(--container-customer);
+            margin-inline: auto;
+        }
+
+        .shop-heading {
+            max-width: 760px;
+            margin-bottom: var(--space-48);
+        }
+
+        .shop-kicker {
+            margin: 0 0 var(--space-12);
+            color: var(--color-neutral-600);
+            font: 600 var(--type-metadata)/1.35 var(--font-ui);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        #shop .section-title,
+        #categoryPageTitle {
+            margin: 0;
+            color: var(--color-ink);
+            font-family: var(--font-display);
+            font-size: var(--type-page-title);
+            font-weight: 400;
+            line-height: 0.92;
+            letter-spacing: 0.01em;
+            text-align: left;
+        }
+
+        .shop-intro,
+        #categoryPageDescription.collection-page-description {
+            max-width: 42rem;
+            margin: var(--space-16) 0 0;
+            color: var(--color-neutral-600);
+            font: 400 var(--type-body)/1.65 var(--font-ui);
+        }
+
+        .shop-toolbar {
+            display: grid;
+            gap: var(--space-24);
+            margin-bottom: var(--space-48);
+            padding-block: var(--space-24);
+            border-top: 1px solid var(--color-neutral-200);
+            border-bottom: 1px solid var(--color-neutral-200);
+        }
+
+        .shop-toolbar-primary {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) minmax(180px, 220px);
+            gap: var(--space-16);
+            align-items: end;
+        }
+
+        .shop-search-field,
+        .shop-sort-field {
+            min-width: 0;
+            display: grid;
+            gap: var(--space-8);
+        }
+
+        .shop-control-label,
+        .shop-filter-label {
+            color: var(--color-neutral-600);
+            font: 600 var(--type-metadata)/1.35 var(--font-ui);
+            letter-spacing: 0.01em;
+        }
+
+        #shop .shop-search,
+        #shop .shop-sort {
+            width: 100%;
+            min-height: 48px;
+            padding: var(--space-12) var(--space-16);
+            border: 1px solid var(--color-neutral-200);
+            border-radius: var(--radius-xs);
+            background: var(--color-white);
+            color: var(--color-ink);
+            font: 400 var(--type-ui)/1.4 var(--font-ui);
+        }
+
+        #shop .shop-sort { cursor: pointer; }
+
+        #shop .shop-search:focus,
+        #shop .shop-sort:focus {
+            outline: none;
+            border-color: var(--color-ink);
+            box-shadow: 0 0 0 1px var(--color-ink);
+        }
+
+        .shop-filter-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: var(--space-16);
+            align-items: end;
+        }
+
+        .shop-filter-group {
+            min-width: 0;
+            display: grid;
+            gap: var(--space-8);
+        }
+
+        #shop .shop-filters {
+            display: flex;
+            flex-wrap: wrap;
+            gap: var(--space-8);
+            min-width: 0;
+        }
+
+        #shop .filter-btn {
+            min-height: 44px;
+            padding: var(--space-8) var(--space-16);
+            border: 1px solid var(--color-neutral-200);
+            border-radius: var(--radius-xs);
+            background: var(--color-white);
+            color: var(--color-neutral-800);
+            font: 600 var(--type-ui)/1.2 var(--font-ui);
+            letter-spacing: 0;
+            text-transform: none;
+            cursor: pointer;
+            transition: background-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
+        }
+
+        #shop .filter-btn:hover {
+            border-color: var(--color-neutral-600);
+            background: var(--color-white);
+            color: var(--color-ink);
+        }
+
+        #shop .filter-btn.active,
+        #shop .filter-btn[aria-pressed="true"] {
+            border-color: var(--color-ink);
+            background: var(--color-ink);
+            color: var(--color-white);
+        }
+
+        .shop-results-status {
+            margin: 0 0 var(--space-8);
+            color: var(--color-neutral-600);
+            font: 600 var(--type-metadata)/1.35 var(--font-ui);
+            white-space: nowrap;
+        }
+
+        #shopProductsGrid.shop-product-grid,
+        #categoryProductsGrid.shop-product-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: var(--space-48) var(--space-24);
+            width: 100%;
+            max-width: none;
+            margin: 0;
+        }
+
+        .shop-product-card {
+            min-width: 0;
+            margin: 0;
+        }
+
+        #shop .product-card.shop-product-link,
+        #categoryPage .product-card.shop-product-link {
+            min-width: 0;
+            display: block;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            color: var(--color-ink);
+            text-decoration: none;
+            box-shadow: none;
+            cursor: pointer;
+        }
+
+        #shop .product-card.shop-product-link:hover,
+        #categoryPage .product-card.shop-product-link:hover {
+            border: 0;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .shop-product-media {
+            position: relative;
+            aspect-ratio: 4 / 5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            border: 1px solid var(--color-neutral-200);
+            background: var(--color-white);
+        }
+
+        .shop-product-image {
+            width: 100%;
+            height: 100%;
+            display: block;
+            padding: var(--space-12);
+            object-fit: contain;
+            transition: opacity var(--motion-fast) var(--ease-standard);
+        }
+
+        .shop-product-image-alt {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+        }
+
+        @media (hover: hover) and (pointer: fine) {
+            .shop-product-link.has-alt-image:hover .shop-product-image-primary { opacity: 0; }
+            .shop-product-link.has-alt-image:hover .shop-product-image-alt { opacity: 1; }
+            .shop-product-link:not(.has-alt-image):hover .shop-product-image-primary { opacity: 0.88; }
+        }
+
+        .shop-product-fallback {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--color-neutral-100);
+            color: var(--color-neutral-600);
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 6vw, 4rem);
+            letter-spacing: 0.04em;
+        }
+
+        .shop-product-info {
+            min-width: 0;
+            display: grid;
+            gap: var(--space-4);
+            padding-top: var(--space-12);
+        }
+
+        .shop-product-name {
+            min-width: 0;
+            margin: 0;
+            color: var(--color-ink);
+            font: 600 var(--type-ui)/1.4 var(--font-ui);
+            overflow-wrap: anywhere;
+        }
+
+        .shop-product-price {
+            min-width: 0;
+            color: var(--color-ink);
+            font: 400 var(--type-ui)/1.4 var(--font-ui);
+            overflow-wrap: anywhere;
+        }
+
+        .shop-product-category,
+        .shop-product-availability,
+        .shop-product-sale-label {
+            color: var(--color-neutral-600);
+            font: 400 var(--type-metadata)/1.4 var(--font-ui);
+            overflow-wrap: anywhere;
+        }
+
+        .shop-product-availability.is-unavailable { color: var(--color-error); font-weight: 600; }
+        .shop-product-sale-label { color: var(--color-kem-pink); font-weight: 600; }
+        .shop-product-original-price { margin-right: var(--space-8); color: var(--color-neutral-400); text-decoration: line-through; }
+        .shop-product-sale-price { color: var(--color-ink); font-weight: 600; }
+
+        .shop-empty-state {
+            grid-column: 1 / -1;
+            display: grid;
+            justify-items: start;
+            gap: var(--space-12);
+            padding: var(--space-48) 0;
+            border-top: 1px solid var(--color-neutral-200);
+            border-bottom: 1px solid var(--color-neutral-200);
+            background: transparent;
+        }
+
+        .shop-empty-state h3 {
+            margin: 0;
+            color: var(--color-ink);
+            font: 600 var(--type-product-title)/1.2 var(--font-ui);
+        }
+
+        .shop-empty-state p { margin: 0; }
+
+        #categoryPage.collection-page {
+            min-height: 100vh;
+            padding: calc(72px + var(--space-48)) var(--page-gutter) var(--space-96);
+            background: var(--color-off-white);
+        }
+
+        .collection-page-header {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: var(--space-24);
+            margin-bottom: var(--space-16);
+        }
+
+        #categoryPage .collection-back {
+            flex: 0 0 auto;
+            margin: 0;
+            background: transparent;
+            color: var(--color-ink);
+            border: 1px solid var(--color-neutral-200);
+        }
+
+        #categoryPage .collection-back:hover {
+            background: var(--color-ink);
+            border-color: var(--color-ink);
+            color: var(--color-white);
+            transform: none;
+        }
+
+        #categoryPageDescription.collection-page-description { margin-bottom: var(--space-48); }
+
+        .collection-product-card {
+            min-width: 0;
+            display: grid;
+            align-content: start;
+        }
+
+        .collection-product-actions { padding-top: var(--space-12); }
+
+        #categoryPage .collection-product-actions .add-to-cart-btn {
+            width: 100%;
+            margin: 0;
+            background: var(--color-ink);
+            color: var(--color-white);
+            transform: none;
+        }
+
+        #categoryPage .collection-product-actions .add-to-cart-btn:hover {
+            background: var(--color-kem-pink);
+            color: var(--color-white);
+            transform: none;
+        }
+
+        @media (min-width: 768px) and (max-width: 1199px) {
+            #shopProductsGrid.shop-product-grid,
+            #categoryProductsGrid.shop-product-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        }
+
+        @media (max-width: 767px) {
+            #shop.kem-shop {
+                padding-top: var(--space-64);
+                padding-bottom: var(--space-96);
+            }
+
+            .shop-heading { margin-bottom: var(--space-32); }
+            .shop-toolbar { gap: var(--space-16); margin-bottom: var(--space-32); }
+            .shop-toolbar-primary { grid-template-columns: minmax(0, 1fr); }
+            .shop-filter-row { grid-template-columns: minmax(0, 1fr); align-items: start; }
+            .shop-results-status { margin: 0; white-space: normal; }
+
+            #shopProductsGrid.shop-product-grid,
+            #categoryProductsGrid.shop-product-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: var(--space-32) var(--space-12);
+            }
+
+            .shop-product-image { padding: var(--space-8); }
+            .shop-product-name,
+            .shop-product-price { font-size: 0.875rem; }
+
+            #categoryPage.collection-page {
+                padding-top: calc(64px + var(--space-32));
+                padding-bottom: var(--space-64);
+            }
+
+            .collection-page-header {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .shop-product-image,
+            #shop .filter-btn { transition: none !important; }
+        }
+'''
+h = h.replace(reduced_motion_anchor, reduced_motion_anchor.replace('\n\n    </style>', p23_css + '\n\n    </style>'))
+
+old_shop = '''        <!-- Shop Section -->
+        <section class="shop" id="shop" style="padding: 6rem 3rem; background: white;">
+            <h2 class="section-title">Shop All Products</h2>
+            <div class="shop-tools">
+                <label for="shopSearch" style="position:absolute;left:-9999px;">Search products</label>
+                <input class="shop-search" type="search" id="shopSearch" placeholder="Search products or collections" autocomplete="off" oninput="setShopSearch(this.value)">
+                <div class="shop-filters" id="shopFilterButtons" aria-label="Filter products by collection"></div>
+                <p id="shopResultsStatus" style="text-align:center;color:#666;margin:0;" aria-live="polite"></p>
+            </div>
+
+            <!-- Products Grid -->
+            <div class="grid" id="shopProductsGrid">
+                <!-- Products will be rendered here -->
+            </div>
+        </section>'''
+new_shop = '''        <!-- Shop Section -->
+        <section class="shop kem-shop" id="shop" aria-labelledby="shopTitle">
+            <div class="shop-shell">
+                <header class="shop-heading">
+                    <p class="shop-kicker">KEM / Catalogue</p>
+                    <h2 class="section-title" id="shopTitle">SHOP</h2>
+                    <p class="shop-intro">Browse the current KEM clothing catalogue.</p>
+                </header>
+
+                <div class="shop-toolbar" aria-label="Catalogue controls">
+                    <div class="shop-toolbar-primary">
+                        <div class="shop-search-field">
+                            <label class="shop-control-label" for="shopSearch">Search products</label>
+                            <input class="shop-search" type="search" id="shopSearch" placeholder="Search products" autocomplete="off" oninput="setShopSearch(this.value)">
+                        </div>
+                        <div class="shop-sort-field">
+                            <label class="shop-control-label" for="shopSort">Sort</label>
+                            <select class="shop-sort" id="shopSort" onchange="setShopSort(this.value)">
+                                <option value="default">Default</option>
+                                <option value="price-asc">Price: Low to high</option>
+                                <option value="price-desc">Price: High to low</option>
+                                <option value="name-asc">Name: A to Z</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="shop-filter-row">
+                        <div class="shop-filter-group">
+                            <span class="shop-filter-label" id="shopCategoryLabel">Category</span>
+                            <div class="shop-filters" id="shopFilterButtons" aria-labelledby="shopCategoryLabel"></div>
+                        </div>
+                        <p class="shop-results-status" id="shopResultsStatus" aria-live="polite"></p>
+                    </div>
+                </div>
+
+                <div class="shop-product-grid" id="shopProductsGrid" aria-live="polite">
+                    <!-- Products will be rendered here -->
+                </div>
+            </div>
+        </section>'''
+assert old_shop in h
+h = h.replace(old_shop, new_shop, 1)
+
+old_category = '''    <!-- Category Page -->
+    <div class="cart-page" id="categoryPage" style="display: none;">
+        <div class="cart-container">
+            <div class="cart-header">
+                <h1 id="categoryPageTitle">Category</h1>
+                <button class="continue-shopping" onclick="closeCategoryPage()">← Back to Shop</button>
+            </div>
+            <p id="categoryPageDescription" style="text-align: center; color: #666; margin-bottom: 2rem;"></p>
+            <div id="categoryProductsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 2rem;">
+                <!-- Products will be rendered here -->
+            </div>
+        </div>
+    </div>'''
+new_category = '''    <!-- Category Page -->
+    <div class="cart-page collection-page" id="categoryPage" style="display: none;">
+        <div class="collection-page-shell">
+            <div class="collection-page-header">
+                <div>
+                    <p class="shop-kicker">KEM / Collection</p>
+                    <h1 id="categoryPageTitle">Category</h1>
+                </div>
+                <button class="continue-shopping collection-back" onclick="closeCategoryPage()">Back to Shop</button>
+            </div>
+            <p class="collection-page-description" id="categoryPageDescription"></p>
+            <div class="shop-product-grid collection-product-grid" id="categoryProductsGrid" aria-live="polite">
+                <!-- Products will be rendered here -->
+            </div>
+        </div>
+    </div>'''
+assert old_category in h
+h = h.replace(old_category, new_category, 1)
+
+state_anchor = "        let shopCategoryFilter = 'all';\n        let shopSearchTerm = '';\n"
+assert state_anchor in h
+h = h.replace(state_anchor, state_anchor + "        let shopSortMode = 'default';\n", 1)
+
+start = h.index('        // Shop Functions\n        function renderShopProducts() {')
+end = h.index('        function getHomepageProductImage(product) {', start)
+new_render = r'''        // Shop Functions
+        function getShopProductImages(product) {
+            const images = (Array.isArray(product?.images) ? product.images : []).map(String).map(value => value.trim()).filter(Boolean);
+            const primary = images[0] || String(product?.image || '').trim();
+            if (primary && !images.includes(primary)) images.unshift(primary);
+            return images;
+        }
+
+        function renderShopProductCard(product) {
+            const id = Number(product.id);
+            const images = getShopProductImages(product);
+            const primary = images[0] || '';
+            const alternate = images.find((src, index) => index > 0 && src !== primary) || '';
+            const media = primary
+                ? `<img class="shop-product-image shop-product-image-primary" src="${escapeHTML(primary)}" alt="${escapeHTML(product.name || 'KEM product')}" loading="lazy" decoding="async">${alternate ? `<img class="shop-product-image shop-product-image-alt" src="${escapeHTML(alternate)}" alt="" loading="lazy" decoding="async">` : ''}`
+                : '<div class="shop-product-fallback" aria-hidden="true">KEM</div>';
+            const category = String(product.category || '').trim();
+            const unavailable = Number(product.stock) <= 0;
+            return `<article class="shop-product-card">
+                <a class="product-card shop-product-link ${alternate ? 'has-alt-image' : ''}" href="?product=${id}" data-shop-product-id="${id}">
+                    <span class="shop-product-media">${media}</span>
+                    <span class="shop-product-info">
+                        <span class="shop-product-name">${escapeHTML(product.name || 'KEM product')}</span>
+                        <span class="shop-product-price">EGP ${Number(product.price).toFixed(2)}</span>
+                        ${category ? `<span class="shop-product-category">${escapeHTML(category)}</span>` : ''}
+                        ${unavailable ? '<span class="shop-product-availability is-unavailable">Out of stock</span>' : ''}
+                    </span>
+                </a>
+            </article>`;
+        }
+
+        function bindShopProductLinks(container) {
+            container.querySelectorAll('a[data-shop-product-id]').forEach(link => {
+                link.addEventListener('click', event => {
+                    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                    event.preventDefault();
+                    openProductDetail(Number(link.dataset.shopProductId));
+                });
+            });
+        }
+
+        function getVisibleShopProducts() {
+            const q = String(shopSearchTerm || '').trim().toLowerCase();
+            const shown = products.filter(p => p.status === 'Active' && (shopCategoryFilter === 'all' || p.category === shopCategoryFilter) && (!q || String(p.name || '').toLowerCase().includes(q) || String(p.category || '').toLowerCase().includes(q) || String(p.description || '').toLowerCase().includes(q)));
+            const sorted = [...shown];
+            if (shopSortMode === 'price-asc') sorted.sort((a, b) => Number(a.price) - Number(b.price));
+            else if (shopSortMode === 'price-desc') sorted.sort((a, b) => Number(b.price) - Number(a.price));
+            else if (shopSortMode === 'name-asc') sorted.sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
+            return sorted;
+        }
+
+        function renderShopProducts() {
+            const grid = document.getElementById('shopProductsGrid');
+            if (!grid) return;
+            const shown = getVisibleShopProducts();
+            const status = document.getElementById('shopResultsStatus');
+            if (status) status.textContent = `${shown.length} product${shown.length === 1 ? '' : 's'}`;
+            if (!shown.length) {
+                grid.innerHTML = `<div class="kem-state kem-state-empty shop-empty-state">
+                    <h3>No products found</h3>
+                    <p>Try another search or category.</p>
+                    <button type="button" class="kem-btn kem-btn-secondary" id="clearShopFilters">Clear search and filters</button>
+                </div>`;
+                document.getElementById('clearShopFilters')?.addEventListener('click', clearShopFilters);
+                return;
+            }
+            grid.innerHTML = shown.map(renderShopProductCard).join('');
+            bindShopProductLinks(grid);
+        }
+
+'''
+h = h[:start] + new_render + h[end:]
+
+filter_start = h.index('        function renderShopFilters() {')
+filter_end = h.index('        function toggleMobileNav(forceOpen) {', filter_start)
+new_filters = r'''        function renderShopFilters() {
+            const el = document.getElementById('shopFilterButtons');
+            if (!el) return;
+            const names = [...new Set(categories.map(getCategoryName).filter(Boolean))];
+            el.innerHTML = ['all', ...names].map(name => `<button type="button" class="filter-btn ${shopCategoryFilter === name ? 'active' : ''}" data-category="${escapeHTML(name)}" aria-pressed="${shopCategoryFilter === name ? 'true' : 'false'}">${escapeHTML(name === 'all' ? 'All Products' : name)}</button>`).join('');
+            el.querySelectorAll('button[data-category]').forEach(button => button.addEventListener('click', () => filterByCategory(button.dataset.category)));
+        }
+
+        function filterByCategory(name) {
+            shopCategoryFilter = name || 'all';
+            renderShopFilters();
+            renderShopProducts();
+            setCategoriesDropdownOpen(false);
+        }
+
+        function setShopSearch(value) {
+            shopSearchTerm = String(value || '');
+            ['shopSearch', 'headerSearch', 'mobileHeaderSearch'].forEach(id => {
+                const input = document.getElementById(id);
+                if (input && input.value !== shopSearchTerm) input.value = shopSearchTerm;
+            });
+            renderShopProducts();
+        }
+
+        function setShopSort(value) {
+            const allowed = new Set(['default', 'price-asc', 'price-desc', 'name-asc']);
+            shopSortMode = allowed.has(value) ? value : 'default';
+            const select = document.getElementById('shopSort');
+            if (select && select.value !== shopSortMode) select.value = shopSortMode;
+            renderShopProducts();
+        }
+
+        function clearShopFilters() {
+            shopCategoryFilter = 'all';
+            renderShopFilters();
+            setShopSearch('');
+        }
+
+'''
+h = h[:filter_start] + new_filters + h[filter_end:]
+
+cat_start = h.index('        function renderCategoryProducts(productsToShow) {')
+cat_end = h.index('        function closeCategoryPage() {', cat_start)
+new_category_render = r'''        function renderCategoryProducts(productsToShow) {
+            const grid = document.getElementById('categoryProductsGrid');
+            if (!grid) return;
+            if (!productsToShow.length) {
+                grid.innerHTML = '<div class="kem-state kem-state-empty shop-empty-state"><h3>No products available</h3><p>This category does not have products yet.</p></div>';
+                return;
+            }
+
+            grid.innerHTML = productsToShow.map(product => {
+                const id = Number(product.id);
+                const images = getShopProductImages(product);
+                const primary = images[0] || '';
+                const alternate = images.find((src, index) => index > 0 && src !== primary) || '';
+                const media = primary
+                    ? `<img class="shop-product-image shop-product-image-primary" src="${escapeHTML(primary)}" alt="${escapeHTML(product.name || 'KEM product')}" loading="lazy" decoding="async">${alternate ? `<img class="shop-product-image shop-product-image-alt" src="${escapeHTML(alternate)}" alt="" loading="lazy" decoding="async">` : ''}`
+                    : '<div class="shop-product-fallback" aria-hidden="true">KEM</div>';
+                const discount = productDiscounts.find(d => Number(d.productId) === id && d.status === 'active');
+                let displayPrice = Number(product.price);
+                if (discount) displayPrice = discount.type === 'percentage' ? displayPrice - (displayPrice * Number(discount.value) / 100) : displayPrice - Number(discount.value);
+                displayPrice = Math.max(0, displayPrice);
+                const price = discount
+                    ? `<span class="shop-product-price"><span class="shop-product-original-price">EGP ${Number(product.price).toFixed(2)}</span><span class="shop-product-sale-price">EGP ${displayPrice.toFixed(2)}</span></span><span class="shop-product-sale-label">Sale</span>`
+                    : `<span class="shop-product-price">EGP ${Number(product.price).toFixed(2)}</span>`;
+                const unavailable = Number(product.stock) <= 0;
+                return `<article class="collection-product-card">
+                    <a class="product-card shop-product-link ${alternate ? 'has-alt-image' : ''}" href="?product=${id}" data-shop-product-id="${id}">
+                        <span class="shop-product-media">${media}</span>
+                        <span class="shop-product-info">
+                            <span class="shop-product-name">${escapeHTML(product.name || 'KEM product')}</span>
+                            ${price}
+                            ${product.category ? `<span class="shop-product-category">${escapeHTML(product.category)}</span>` : ''}
+                            ${unavailable ? '<span class="shop-product-availability is-unavailable">Out of stock</span>' : ''}
+                        </span>
+                    </a>
+                    <div class="collection-product-actions">
+                        <button type="button" class="add-to-cart-btn" data-category-add-id="${id}">Add to Cart</button>
+                    </div>
+                </article>`;
+            }).join('');
+            bindShopProductLinks(grid);
+            grid.querySelectorAll('button[data-category-add-id]').forEach(button => button.addEventListener('click', () => addToCart(Number(button.dataset.categoryAddId))));
+        }
+
+'''
+h = h[:cat_start] + new_category_render + h[cat_end:]
+
+required = [
+    'P2.3 — COLLECTION / SHOP',
+    'class="shop kem-shop"',
+    'id="shopSort"',
+    'class="shop-product-grid" id="shopProductsGrid"',
+    "let shopSortMode = 'default';",
+    'function getVisibleShopProducts()',
+    'function setShopSort(value)',
+    'function clearShopFilters()',
+    'class="cart-page collection-page"',
+    'data-category-add-id=',
+]
+for item in required:
+    assert item in h, item
+assert '<section class="shop" id="shop" style=' not in h
+assert 'onclick="openProductDetail(${Number(p.id)})"' not in h
+path.write_text(h)
