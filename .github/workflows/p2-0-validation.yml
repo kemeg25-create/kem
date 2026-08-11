@@ -1,0 +1,168 @@
+name: P2.0 global design system validation
+on:
+  push:
+    branches:
+      - agent/p1-final-validation
+    paths:
+      - validation/p2_0_targeted.cjs
+      - .github/workflows/p2-0-validation.yml
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Load exact P2.0 production source and verify CSS-only scope
+        run: |
+          git fetch origin agent/p2-visual-ux
+          test "$(git rev-parse origin/agent/p2-visual-ux)" = "85d774e196bb647205f04ef1c67da9bbf862542c"
+          test "$(git diff --name-only 471860f83750cd239627213608f7fd7b39d41adf 85d774e196bb647205f04ef1c67da9bbf862542c)" = "index.html"
+          git diff --exit-code 471860f83750cd239627213608f7fd7b39d41adf 85d774e196bb647205f04ef1c67da9bbf862542c -- functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml
+          git show 471860f83750cd239627213608f7fd7b39d41adf:index.html > /tmp/p1-index.html
+          git show 85d774e196bb647205f04ef1c67da9bbf862542c:index.html > /tmp/p2-index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          b=Path('/tmp/p1-index.html').read_text(); p=Path('/tmp/p2-index.html').read_text()
+          def without_style(s):
+              return re.sub(r'<style>.*?</style>', '<style></style>', s, count=1, flags=re.S|re.I)
+          assert without_style(b) == without_style(p), 'P2.0 changed markup/script outside the stylesheet'
+          style=re.search(r'<style>(.*?)</style>',p,re.S|re.I).group(1)
+          required=['--color-ink: #0A0A0A;','--space-128: 128px;','--type-page-title:','--container-customer: 1400px;','.kem-btn-primary','.kem-field-error','.kem-dashboard-card,','.kem-state-success','@media (prefers-reduced-motion: reduce)']
+          for item in required: assert item in style,item
+          body=re.search(r'body\s*\{(.*?)\}',style,re.S).group(1)
+          assert 'overflow-x: hidden' not in body
+          print('P2.0 is CSS-only and required global foundations are present')
+          PY
+          git checkout 85d774e196bb647205f04ef1c67da9bbf862542c -- index.html functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
+
+      - name: Install Firebase emulator and Chromium tooling
+        run: |
+          npm --prefix functions install --ignore-scripts --no-audit --no-fund
+          npm init -y >/dev/null 2>&1
+          npm install --no-save --package-lock=false firebase-tools playwright >/dev/null
+          npx playwright install --with-deps chromium
+
+      - name: Prepare emulator routing only
+        run: |
+          python3 validation/prepare_emulator.py
+          python3 validation/patch_functions_runtime.py
+          python3 validation/full_runtime_patch.py
+          python3 -m json.tool firebase.json >/dev/null
+          node --check functions/index.js
+          node --check validation/p2_0_targeted.cjs
+          node --check validation/p1_reconciliation_targeted.cjs
+          node --check validation/dashboard_targeted.cjs
+          node --check validation/smoke.cjs
+          git diff -U0 85d774e196bb647205f04ef1c67da9bbf862542c -- index.html functions/index.js > /tmp/runtime-app.diff || true
+          if grep -E 'P2\.0|color-ink|space-128|kem-btn|kem-field|kem-state|prefers-reduced-motion|overflow-x: hidden|about-content|data-category|data-image-index|data-variant-index|employeeModal\.active|orderRootRef|initialOrderRoot' /tmp/runtime-app.diff; then
+            echo 'Runtime preparation altered frozen/design-system application behavior'
+            cat /tmp/runtime-app.diff
+            exit 1
+          fi
+          echo 'Runtime preparation is limited to emulator endpoint/configuration wiring'
+
+      - name: P2.0 responsive and reduced-motion browser validation
+        env:
+          NODE_PATH: ${{ github.workspace }}/functions/node_modules:${{ github.workspace }}/node_modules
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+          FIREBASE_DATABASE_EMULATOR_HOST: 127.0.0.1:9000
+          FIREBASE_STORAGE_EMULATOR_HOST: 127.0.0.1:9199
+          GCLOUD_PROJECT: demo-kem-validation
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 90s node validation/p2_0_targeted.cjs"
+
+      - name: Frozen P1 reconciliation browser validation
+        env:
+          NODE_PATH: ${{ github.workspace }}/functions/node_modules:${{ github.workspace }}/node_modules
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+          FIREBASE_DATABASE_EMULATOR_HOST: 127.0.0.1:9000
+          FIREBASE_STORAGE_EMULATOR_HOST: 127.0.0.1:9199
+          GCLOUD_PROJECT: demo-kem-validation
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 90s node validation/p1_reconciliation_targeted.cjs"
+
+      - name: Frozen P1 dashboard responsive validation
+        env:
+          NODE_PATH: ${{ github.workspace }}/functions/node_modules:${{ github.workspace }}/node_modules
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+          FIREBASE_DATABASE_EMULATOR_HOST: 127.0.0.1:9000
+          FIREBASE_STORAGE_EMULATOR_HOST: 127.0.0.1:9199
+          GCLOUD_PROJECT: demo-kem-validation
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 90s node validation/dashboard_targeted.cjs"
+
+      - name: Complete frozen P0/P1 real-browser integration suite
+        env:
+          NODE_PATH: ${{ github.workspace }}/functions/node_modules:${{ github.workspace }}/node_modules
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+          FIREBASE_DATABASE_EMULATOR_HOST: 127.0.0.1:9000
+          FIREBASE_STORAGE_EMULATOR_HOST: 127.0.0.1:9199
+          GCLOUD_PROJECT: demo-kem-validation
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 180s node validation/smoke.cjs"
+
+      - name: Restore exact P2.0 source and rerun security/syntax guards
+        if: always()
+        run: |
+          git checkout -- validation/smoke.cjs validation/seed.cjs
+          git checkout 85d774e196bb647205f04ef1c67da9bbf862542c -- index.html functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
+          rm -f package.json package-lock.json firebase-debug.log database-debug.log ui-debug.log validation/*failure.png
+          rm -rf node_modules functions/node_modules functions/package-lock.json
+          node --check functions/index.js
+          python3 -m json.tool database.rules.json >/dev/null
+          python3 -m json.tool firebase.json >/dev/null
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re,subprocess,tempfile,os
+          h=Path('index.html').read_text(); b=Path('functions/index.js').read_text(); rules=json.loads(Path('database.rules.json').read_text())['rules']
+          blocks=re.findall(r'<script\s+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',h,re.S|re.I)
+          assert blocks
+          for body in blocks: json.loads(body)
+          for attrs,body in re.findall(r'<script([^>]*)>(.*?)</script>',h,re.S|re.I):
+              if 'application/ld+json' in attrs.lower() or not body.strip(): continue
+              f=tempfile.NamedTemporaryFile('w',suffix='.js',delete=False); f.write(body); f.close()
+              try: subprocess.run(['node','--check',f.name],check=True)
+              finally: os.unlink(f.name)
+          assert h.count("window.addEventListener('popstate'")==1
+          assert h.count("document.addEventListener('keydown', event => {")==1
+          assert 'exports.revokeEmployeeSession' in b and 'auth.revokeRefreshTokens' in b
+          assert 'tokensValidAfterTime' in b and 'auth_time' in b
+          assert 'requireVerifiedCustomer' in b and 'email_verified' in b
+          assert "paymentMethod !== 'cod'" in b
+          assert "const orderRootRef = db.ref('/');" in b
+          assert 'const transaction = await orderRootRef.transaction((root) => {' in b
+          assert 'product.stock = currentStock - item.quantity' in b
+          assert rules['orders']['.read'] is False and rules['orders']['.write'] is False
+          assert rules['employeeRoles']['.read'] is False and rules['employeeRoles']['.write'] is False
+          assert rules['coupons']['.read'] is False and rules['coupons']['.write'] is False
+          assert 'request.data?.price' not in b
+          assert 'exports.getCustomerOrders' in b and 'exports.uploadProductImage' in b
+          assert "order?.customerUid === uid" in b
+          assert '.about-content, .about-content > * { min-width:0; }' in h
+          assert "#employeeModal.active,.form-modal.active,.auth-modal.active,.product-detail-modal.active" in h
+          assert '--color-kem-pink: #FF3366;' in h
+          assert '@media (prefers-reduced-motion: reduce)' in h
+          style=re.search(r'<style>(.*?)</style>',h,re.S|re.I).group(1)
+          body_css=re.search(r'body\s*\{(.*?)\}',style,re.S).group(1)
+          assert 'overflow-x: hidden' not in body_css
+          print('Exact P2.0 source, design-system anchors, and frozen P0/P1 security guards verified')
+          PY
+          git diff --check
+          git diff --exit-code 85d774e196bb647205f04ef1c67da9bbf862542c -- index.html functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
