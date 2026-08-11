@@ -58,7 +58,12 @@ jobs:
           new_password="await page.evaluate(async (password) => auth.signInWithEmailAndPassword('unverified@example.com', password), PASSWORD);"
           if old_password not in h:
               raise SystemExit('unverified customer login harness anchor not found')
-          p.write_text(h.replace(old_password,new_password,1))
+          h=h.replace(old_password,new_password,1)
+          widths_old='[360, 390, 768, 1024, 1440]'
+          widths_new='[360, 375, 390, 414, 768, 1024, 1440]'
+          if h.count(widths_old) != 2:
+              raise SystemExit(f'expected two viewport loops, found {h.count(widths_old)}')
+          p.write_text(h.replace(widths_old,widths_new))
           PY
       - name: Start Firebase Emulator Suite
         run: |
