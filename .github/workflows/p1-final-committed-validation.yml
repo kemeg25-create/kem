@@ -1,0 +1,154 @@
+name: P1 final committed integration validation
+on:
+  push:
+    branches:
+      - agent/p1-final-validation
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  final-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Load and verify committed P1 application source
+        run: |
+          git fetch origin agent/p1-remediation
+          test "$(git rev-parse origin/agent/p1-remediation)" = "a7848a7ba6f97afd6505a83bc2fb8447a23973f9"
+          test "$(git diff --name-only 317cf982aa1ae0cb4f39550521b8899dba5f88d3 a7848a7ba6f97afd6505a83bc2fb8447a23973f9)" = "index.html"
+          test "$(git diff --numstat 317cf982aa1ae0cb4f39550521b8899dba5f88d3 a7848a7ba6f97afd6505a83bc2fb8447a23973f9 -- index.html)" = $'4\t0\tindex.html'
+          git checkout a7848a7ba6f97afd6505a83bc2fb8447a23973f9 -- index.html functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
+          git diff --exit-code a7848a7ba6f97afd6505a83bc2fb8447a23973f9 -- index.html functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
+          python3 - <<'PY'
+          from pathlib import Path
+          h=Path('index.html').read_text()
+          expected=[
+            '.dashboard { padding-left:1rem; padding-right:1rem; }',
+            '.dashboard-header { flex-direction:column; align-items:stretch; gap:1rem; }',
+            '.dashboard-header h1 { min-width:0; overflow-wrap:anywhere; }',
+            '.dashboard-header-actions { width:100%; min-width:0; flex-wrap:wrap; justify-content:flex-start; }',
+          ]
+          for line in expected:
+              assert h.count(line) == 1, (line, h.count(line))
+          print('Committed mobile dashboard fix present exactly once before emulator preparation')
+          PY
+      - name: Install emulator and Chromium tooling
+        run: |
+          npm --prefix functions install --ignore-scripts --no-audit --no-fund
+          npm init -y >/dev/null 2>&1
+          npm install --no-save --package-lock=false firebase-tools playwright >/dev/null
+          npx playwright install --with-deps chromium
+      - name: Prepare isolated emulator runtime without reinjecting dashboard fix
+        run: |
+          python3 validation/use_committed_dashboard_fix.py
+          python3 validation/prepare_emulator.py
+          python3 validation/patch_functions_runtime.py
+          python3 validation/full_runtime_patch.py
+          python3 -m json.tool firebase.json >/dev/null
+          node --check functions/index.js
+          node --check validation/dashboard_targeted.cjs
+          node --check validation/smoke.cjs
+          python3 - <<'PY'
+          from pathlib import Path
+          h=Path('index.html').read_text()
+          expected=[
+            '.dashboard { padding-left:1rem; padding-right:1rem; }',
+            '.dashboard-header { flex-direction:column; align-items:stretch; gap:1rem; }',
+            '.dashboard-header h1 { min-width:0; overflow-wrap:anywhere; }',
+            '.dashboard-header-actions { width:100%; min-width:0; flex-wrap:wrap; justify-content:flex-start; }',
+          ]
+          for line in expected:
+              assert h.count(line) == 1, (line, h.count(line))
+          print('Emulator preparation preserved committed dashboard rules without duplication')
+          PY
+      - name: Targeted committed-dashboard browser validation
+        env:
+          NODE_PATH: ${{ github.workspace }}/functions/node_modules:${{ github.workspace }}/node_modules
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+          FIREBASE_DATABASE_EMULATOR_HOST: 127.0.0.1:9000
+          FIREBASE_STORAGE_EMULATOR_HOST: 127.0.0.1:9199
+          GCLOUD_PROJECT: demo-kem-validation
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          echo "[$(date -Ins)] Starting targeted committed-dashboard validation"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 90s node validation/dashboard_targeted.cjs"
+          echo "[$(date -Ins)] Targeted committed-dashboard validation returned cleanly"
+      - name: Complete committed-source real-browser integration suite
+        env:
+          NODE_PATH: ${{ github.workspace }}/functions/node_modules:${{ github.workspace }}/node_modules
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+          FIREBASE_DATABASE_EMULATOR_HOST: 127.0.0.1:9000
+          FIREBASE_STORAGE_EMULATOR_HOST: 127.0.0.1:9199
+          GCLOUD_PROJECT: demo-kem-validation
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          echo "[$(date -Ins)] Starting complete committed-source integration suite"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 180s node validation/smoke.cjs"
+          echo "[$(date -Ins)] Complete committed-source suite and emulator cleanup returned cleanly"
+      - name: Process diagnostics on failure
+        if: failure()
+        run: |
+          echo '=== process tree ==='
+          ps -ef --forest || true
+          echo '=== listening sockets ==='
+          ss -lptn || true
+          echo '=== firebase debug tail ==='
+          tail -n 350 firebase-debug.log || true
+          echo '=== database debug tail ==='
+          tail -n 200 database-debug.log || true
+      - name: Restore exact committed application and verify P0/P1 guards
+        if: always()
+        run: |
+          git checkout -- validation/prepare_emulator.py validation/smoke.cjs validation/seed.cjs
+          git checkout a7848a7ba6f97afd6505a83bc2fb8447a23973f9 -- index.html functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
+          rm -f package.json package-lock.json firebase-debug.log database-debug.log ui-debug.log
+          rm -rf node_modules functions/node_modules functions/package-lock.json
+          node --check functions/index.js
+          python3 -m json.tool database.rules.json >/dev/null
+          python3 -m json.tool firebase.json >/dev/null
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re,subprocess,tempfile,os
+          h=Path('index.html').read_text(); b=Path('functions/index.js').read_text(); rules=json.loads(Path('database.rules.json').read_text())['rules']
+          blocks=re.findall(r'<script\s+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',h,re.S|re.I)
+          assert blocks
+          for body in blocks: json.loads(body)
+          for attrs, body in re.findall(r'<script([^>]*)>(.*?)</script>',h,re.S|re.I):
+              if 'application/ld+json' in attrs.lower() or not body.strip(): continue
+              f=tempfile.NamedTemporaryFile('w',suffix='.js',delete=False);f.write(body);f.close()
+              try: subprocess.run(['node','--check',f.name],check=True)
+              finally: os.unlink(f.name)
+          assert h.count("window.addEventListener('popstate'")==1
+          assert h.count("document.addEventListener('keydown', event => {")==1
+          assert 'exports.revokeEmployeeSession' in b and 'auth.revokeRefreshTokens' in b
+          assert 'tokensValidAfterTime' in b and 'auth_time' in b
+          assert 'requireVerifiedCustomer' in b and 'email_verified' in b
+          assert "paymentMethod !== 'cod'" in b
+          assert "db.ref('/').transaction" in b and 'product.stock = currentStock - item.quantity' in b
+          assert rules['orders']['.read'] is False and rules['orders']['.write'] is False
+          assert rules['employeeRoles']['.read'] is False and rules['employeeRoles']['.write'] is False
+          assert rules['coupons']['.read'] is False and rules['coupons']['.write'] is False
+          assert 'request.data?.price' not in b
+          assert 'exports.getCustomerOrders' in b and 'exports.uploadProductImage' in b
+          assert "order?.customerUid === uid" in b
+          expected=[
+            '.dashboard { padding-left:1rem; padding-right:1rem; }',
+            '.dashboard-header { flex-direction:column; align-items:stretch; gap:1rem; }',
+            '.dashboard-header h1 { min-width:0; overflow-wrap:anywhere; }',
+            '.dashboard-header-actions { width:100%; min-width:0; flex-wrap:wrap; justify-content:flex-start; }',
+          ]
+          for line in expected: assert h.count(line)==1
+          print('Exact committed application and P0/P1 security guardrails verified')
+          PY
+          git diff --check
+          git diff --exit-code a7848a7ba6f97afd6505a83bc2fb8447a23973f9 -- index.html functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
