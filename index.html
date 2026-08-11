@@ -3292,6 +3292,406 @@
             section[id], footer[id] { scroll-margin-top: calc(64px + var(--space-12)); }
         }
 
+        /* P2.2 — HOMEPAGE */
+        #home.home-hero {
+            min-height: 0;
+            display: block;
+            overflow: visible;
+            padding: calc(72px + var(--space-48)) var(--page-gutter) var(--space-64);
+            background: var(--color-off-white);
+        }
+
+        .home-hero-shell,
+        .home-section-shell {
+            width: 100%;
+            max-width: var(--container-customer);
+            margin-inline: auto;
+        }
+
+        .home-hero-shell {
+            display: grid;
+            grid-template-columns: minmax(0, 0.88fr) minmax(360px, 1.12fr);
+            gap: var(--space-64);
+            align-items: center;
+        }
+
+        .home-hero-shell.hero-without-image {
+            grid-template-columns: minmax(0, 760px);
+            min-height: 520px;
+            align-content: center;
+        }
+
+        .home-hero-copy { min-width: 0; max-width: 680px; }
+
+        .home-eyebrow,
+        .home-section-kicker {
+            margin: 0 0 var(--space-12);
+            font-family: var(--font-ui);
+            font-size: var(--type-metadata);
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--color-neutral-600);
+        }
+
+        #home .hero-title {
+            margin: 0 0 var(--space-24);
+            font-family: var(--font-display);
+            font-size: var(--type-display);
+            font-weight: 400;
+            line-height: 0.86;
+            letter-spacing: 0.01em;
+            color: var(--color-ink);
+        }
+
+        #home .hero-title span { display: block; }
+
+        #home .hero-subtitle {
+            max-width: 36rem;
+            margin: 0 0 var(--space-32);
+            font-family: var(--font-ui);
+            font-size: var(--type-body);
+            font-weight: 400;
+            line-height: 1.65;
+            letter-spacing: 0;
+            text-transform: none;
+            color: var(--color-neutral-600);
+            animation: none;
+        }
+
+        #home .cta-button {
+            min-height: 48px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: var(--space-12) var(--space-24);
+            border: 1px solid var(--color-kem-pink);
+            border-radius: var(--radius-xs);
+            background: var(--color-kem-pink);
+            color: var(--color-ink);
+            font-family: var(--font-ui);
+            font-size: var(--type-ui);
+            font-weight: 600;
+            letter-spacing: 0;
+            text-transform: none;
+            text-decoration: none;
+            box-shadow: none;
+            animation: none;
+            transition: background-color var(--motion-fast) var(--ease-standard), color var(--motion-fast) var(--ease-standard), border-color var(--motion-fast) var(--ease-standard);
+        }
+
+        #home .cta-button:hover {
+            background: var(--color-ink);
+            border-color: var(--color-ink);
+            color: var(--color-white);
+            transform: none;
+            box-shadow: none;
+        }
+
+        #home .floating-shapes { display: none; }
+
+        .home-hero-product { min-width: 0; }
+        .home-hero-product[hidden] { display: none; }
+
+        .home-hero-media,
+        .home-product-media,
+        .home-category-media {
+            border: 1px solid var(--color-neutral-200);
+            background: var(--color-white);
+            overflow: hidden;
+        }
+
+        .home-hero-media {
+            aspect-ratio: 4 / 5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .home-hero-media img,
+        .home-product-media img,
+        .home-category-media img {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: contain;
+        }
+
+        .home-hero-media img { padding: var(--space-24); }
+
+        .home-hero-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: var(--space-16);
+            margin-top: var(--space-12);
+            font-family: var(--font-ui);
+        }
+
+        .home-hero-name {
+            min-width: 0;
+            font-size: var(--type-ui);
+            font-weight: 600;
+            line-height: 1.35;
+        }
+
+        .home-hero-price {
+            flex: 0 0 auto;
+            font-size: var(--type-metadata);
+            color: var(--color-neutral-600);
+        }
+
+        .home-featured,
+        #collections.home-categories,
+        .about.home-about {
+            padding: var(--space-96) var(--page-gutter);
+        }
+
+        .home-featured { background: var(--color-white); }
+        #collections.home-categories { background: var(--color-off-white); }
+
+        .home-section-header {
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: var(--space-24);
+            margin-bottom: var(--space-32);
+        }
+
+        .home-section-title {
+            margin: 0;
+            font-family: var(--font-display);
+            font-size: var(--type-section-title);
+            font-weight: 400;
+            line-height: 0.95;
+            letter-spacing: 0.01em;
+            color: var(--color-ink);
+        }
+
+        .home-text-link {
+            min-height: 44px;
+            display: inline-flex;
+            align-items: center;
+            flex: 0 0 auto;
+            color: var(--color-ink);
+            font-family: var(--font-ui);
+            font-size: var(--type-ui);
+            font-weight: 600;
+            text-decoration: none;
+            border-bottom: 1px solid var(--color-ink);
+        }
+
+        .home-text-link:hover { color: var(--color-kem-pink); border-color: var(--color-kem-pink); }
+
+        .home-featured-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: var(--space-24);
+        }
+
+        .home-product-card { min-width: 0; }
+
+        .home-product-link {
+            display: block;
+            color: var(--color-ink);
+            text-decoration: none;
+        }
+
+        .home-product-media {
+            aspect-ratio: 4 / 5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .home-product-media img {
+            padding: var(--space-12);
+            transition: opacity var(--motion-fast) var(--ease-standard);
+        }
+
+        .home-product-link:hover .home-product-media img { opacity: 0.88; }
+
+        .home-product-image-fallback,
+        .home-category-image-fallback {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--color-neutral-100);
+            color: var(--color-neutral-600);
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 5vw, 4rem);
+            letter-spacing: 0.04em;
+        }
+
+        .home-product-info {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: var(--space-8) var(--space-12);
+            align-items: start;
+            padding-top: var(--space-12);
+        }
+
+        .home-product-name {
+            min-width: 0;
+            margin: 0;
+            font-family: var(--font-ui);
+            font-size: var(--type-ui);
+            font-weight: 600;
+            line-height: 1.4;
+            overflow-wrap: anywhere;
+        }
+
+        .home-product-price {
+            font-family: var(--font-ui);
+            font-size: var(--type-ui);
+            font-weight: 400;
+            white-space: nowrap;
+        }
+
+        .home-product-meta {
+            grid-column: 1 / -1;
+            margin: 0;
+            font-family: var(--font-ui);
+            font-size: var(--type-metadata);
+            line-height: 1.4;
+            color: var(--color-neutral-600);
+        }
+
+        .home-empty-state {
+            grid-column: 1 / -1;
+            padding: var(--space-48) 0;
+            border-top: 1px solid var(--color-neutral-200);
+            border-bottom: 1px solid var(--color-neutral-200);
+            color: var(--color-neutral-600);
+            font-family: var(--font-ui);
+            font-size: var(--type-body);
+        }
+
+        .home-category-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: var(--space-24);
+        }
+
+        .home-category-card {
+            width: 100%;
+            min-width: 0;
+            min-height: 44px;
+            padding: 0;
+            border: 0;
+            border-radius: 0;
+            background: transparent;
+            color: var(--color-ink);
+            text-align: left;
+            font: inherit;
+            display: block;
+            text-decoration: none;
+        }
+
+        .home-category-media {
+            aspect-ratio: 4 / 3;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .home-category-media img { padding: var(--space-16); }
+
+        .home-category-copy { padding-top: var(--space-12); }
+
+        .home-category-name {
+            margin: 0;
+            font-family: var(--font-ui);
+            font-size: var(--type-product-title);
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        .home-category-desc {
+            margin: var(--space-8) 0 0;
+            max-width: 34rem;
+            font-family: var(--font-ui);
+            font-size: var(--type-metadata);
+            line-height: 1.5;
+            color: var(--color-neutral-600);
+        }
+
+        .home-category-card:hover .home-category-name { color: var(--color-kem-pink); }
+
+        .about.home-about {
+            background: var(--color-ink);
+            color: var(--color-white);
+        }
+
+        .home-about .about-content {
+            display: block;
+            max-width: var(--container-editorial);
+            margin-inline: auto;
+        }
+
+        .home-about .about-text { max-width: 760px; }
+
+        .home-about .about-text h2 {
+            margin: 0 0 var(--space-24);
+            font-family: var(--font-display);
+            font-size: var(--type-section-title);
+            font-weight: 400;
+            line-height: 0.95;
+            letter-spacing: 0.01em;
+            color: var(--color-white);
+            background: none;
+            -webkit-background-clip: border-box;
+            -webkit-text-fill-color: currentColor;
+            background-clip: border-box;
+        }
+
+        .home-about .about-text p {
+            margin: 0;
+            font-family: var(--font-ui);
+            font-size: clamp(1rem, 1.5vw, 1.2rem);
+            line-height: 1.7;
+            color: var(--color-neutral-200);
+            opacity: 1;
+        }
+
+        .home-about .stats { display: none !important; }
+
+        @media (max-width: 1023px) {
+            #home.home-hero { padding-top: calc(64px + var(--space-48)); }
+            .home-hero-shell { grid-template-columns: minmax(0, 1fr); gap: var(--space-32); }
+            .home-hero-shell.hero-without-image { min-height: 460px; }
+            .home-hero-product { width: min(100%, 560px); }
+            .home-featured-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .home-category-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        @media (max-width: 767px) {
+            #home.home-hero {
+                padding-top: calc(64px + var(--space-32));
+                padding-bottom: var(--space-48);
+            }
+
+            .home-hero-shell.hero-without-image { min-height: 380px; }
+            #home .hero-title { font-size: clamp(4rem, 22vw, 6rem); }
+            .home-hero-media img { padding: var(--space-16); }
+            .home-featured,
+            #collections.home-categories,
+            .about.home-about { padding-block: var(--space-64); }
+            .home-section-header { align-items: flex-start; flex-direction: column; gap: var(--space-16); }
+            .home-featured-grid { gap: var(--space-24) var(--space-12); }
+            .home-product-info { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+            .home-product-price { white-space: normal; }
+            .home-product-meta { grid-column: 1; }
+            .home-category-grid { grid-template-columns: minmax(0, 1fr); gap: var(--space-32); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            #home .cta-button,
+            .home-product-media img { transition: none !important; }
+        }
+
     </style>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -3357,47 +3757,42 @@
         </div>
 
         <!-- Hero Section -->
-        <section class="hero" id="home">
-            <div class="floating-shapes">
-                <div class="shape"></div>
-                <div class="shape"></div>
-                <div class="shape"></div>
-            </div>
-            <div class="hero-content">
-                <h1 class="hero-title">
-                    <span class="outline">STREET</span>
-                    <span class="filled">CULTURE</span>
-                </h1>
-                <p class="hero-subtitle">Redefining Fashion for Tomorrow</p>
-                <a href="#collections" class="cta-button">Explore Collection</a>
+        <section class="hero home-hero" id="home">
+            <div class="home-hero-shell hero-without-image" id="homeHeroShell">
+                <div class="home-hero-copy">
+                    <p class="home-eyebrow">KEM / Clothing</p>
+                    <h1 class="hero-title"><span>KEM</span><span>CLOTHING</span></h1>
+                    <p class="hero-subtitle">Streetwear from KEM. Shop the current collection.</p>
+                    <a href="#shop" class="cta-button">Shop KEM</a>
+                </div>
+                <div class="home-hero-product" id="homeHeroProduct" aria-live="polite" hidden></div>
             </div>
         </section>
 
-        <!-- Collections -->
-        <section class="collections" id="collections">
-            <h2 class="section-title">Latest Drops</h2>
-            <div class="grid">
-                <div class="collection-card" onclick="goToShop('Urban Core')">
-                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='533'%3E%3Crect fill='%23FF3366' width='400' height='533'/%3E%3Ctext x='50%25' y='50%25' font-size='48' fill='white' text-anchor='middle' dominant-baseline='middle' font-family='Arial, sans-serif' font-weight='bold'%3EURBAN CORE%3C/text%3E%3C/svg%3E" alt="Urban Core Collection">
-                    <div class="collection-overlay">
-                        <h3 class="collection-name">Urban Core</h3>
-                        <p class="collection-desc">Essential streetwear reimagined</p>
+        <!-- Featured Products -->
+        <section class="home-featured" id="featuredProducts" aria-labelledby="featuredProductsTitle">
+            <div class="home-section-shell">
+                <div class="home-section-header">
+                    <div>
+                        <p class="home-section-kicker">KEM / Shop</p>
+                        <h2 class="home-section-title" id="featuredProductsTitle">Featured Products</h2>
+                    </div>
+                    <a class="home-text-link" href="#shop">Shop all products</a>
+                </div>
+                <div class="home-featured-grid" id="homeFeaturedProducts" aria-live="polite"></div>
+            </div>
+        </section>
+
+        <!-- Real Categories -->
+        <section class="collections home-categories" id="collections" aria-labelledby="homeCategoriesTitle" hidden>
+            <div class="home-section-shell">
+                <div class="home-section-header">
+                    <div>
+                        <p class="home-section-kicker">KEM / Categories</p>
+                        <h2 class="home-section-title" id="homeCategoriesTitle">Shop by Category</h2>
                     </div>
                 </div>
-                <div class="collection-card" onclick="goToShop('Neon Nights')">
-                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='533'%3E%3Crect fill='%2300FF99' width='400' height='533'/%3E%3Ctext x='50%25' y='50%25' font-size='48' fill='black' text-anchor='middle' dominant-baseline='middle' font-family='Arial, sans-serif' font-weight='bold'%3ENEON NIGHTS%3C/text%3E%3C/svg%3E" alt="Neon Nights Collection">
-                    <div class="collection-overlay">
-                        <h3 class="collection-name">Neon Nights</h3>
-                        <p class="collection-desc">Bold colors, bolder statements</p>
-                    </div>
-                </div>
-                <div class="collection-card" onclick="goToShop('Minimal Edge')">
-                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='533'%3E%3Crect fill='%23000000' width='400' height='533'/%3E%3Ctext x='50%25' y='50%25' font-size='48' fill='white' text-anchor='middle' dominant-baseline='middle' font-family='Arial, sans-serif' font-weight='bold'%3EMINIMAL EDGE%3C/text%3E%3C/svg%3E" alt="Minimal Edge Collection">
-                    <div class="collection-overlay">
-                        <h3 class="collection-name">Minimal Edge</h3>
-                        <p class="collection-desc">Less is more, always</p>
-                    </div>
-                </div>
+                <div class="home-category-grid" id="homeCategoryGrid"></div>
             </div>
         </section>
 
@@ -3418,15 +3813,14 @@
         </section>
 
         <!-- About -->
-        <section class="about" id="about">
+        <section class="about home-about" id="about">
             <div class="about-content">
                 <div class="about-text">
-                    <h2 id="aboutSectionTitle">Who We Are</h2>
-                    <p id="aboutSectionContent">KEM isn't just a clothing brand—it's a movement. We're redefining streetwear for the next generation, blending bold aesthetics with sustainable practices. Every piece tells a story, every design challenges conventions.</p>
+                    <p class="home-section-kicker">About KEM</p>
+                    <h2 id="aboutSectionTitle">KEM</h2>
+                    <p id="aboutSectionContent">KEM is an Egyptian streetwear brand. Explore the current clothing collection.</p>
                 </div>
-                <div class="stats" id="aboutStatsContainer">
-                    <!-- Stats will be rendered here dynamically -->
-                </div>
+                <div class="stats" id="aboutStatsContainer" hidden></div>
             </div>
         </section>
 
@@ -4854,6 +5248,144 @@
 
 
 
+
+        function getHomepageProductImage(product) {
+            return String(product?.images?.[0] || product?.image || '').trim();
+        }
+
+        function getHomepageActiveProducts() {
+            return products.filter(product => product && product.status === 'Active');
+        }
+
+        function formatHomepagePrice(value) {
+            const amount = Number(value);
+            return Number.isFinite(amount) ? `EGP ${amount.toFixed(2)}` : '';
+        }
+
+        function renderHomeHeroProduct() {
+            const shell = document.getElementById('homeHeroShell');
+            const container = document.getElementById('homeHeroProduct');
+            if (!shell || !container) return;
+
+            const active = getHomepageActiveProducts();
+            const heroProduct = active.find(product => Number(product.stock) > 0 && getHomepageProductImage(product)) || active.find(product => getHomepageProductImage(product));
+            if (!heroProduct) {
+                container.hidden = true;
+                container.replaceChildren();
+                shell.classList.add('hero-without-image');
+                return;
+            }
+
+            const image = getHomepageProductImage(heroProduct);
+            container.innerHTML = `
+                <div class="home-hero-media">
+                    <img src="${escapeHTML(image)}" alt="${escapeHTML(heroProduct.name || 'KEM product')}" decoding="async" fetchpriority="high">
+                </div>
+                <div class="home-hero-meta">
+                    <span class="home-hero-name">${escapeHTML(heroProduct.name || 'KEM')}</span>
+                    <span class="home-hero-price">${escapeHTML(formatHomepagePrice(heroProduct.price))}</span>
+                </div>`;
+            container.hidden = false;
+            shell.classList.remove('hero-without-image');
+        }
+
+        function renderHomepageFeaturedProducts() {
+            const grid = document.getElementById('homeFeaturedProducts');
+            if (!grid) return;
+            const featured = getHomepageActiveProducts().slice(0, 4);
+            if (!featured.length) {
+                grid.innerHTML = '<div class="home-empty-state">No products are available right now.</div>';
+                return;
+            }
+
+            grid.innerHTML = featured.map(product => {
+                const id = Number(product.id);
+                const image = getHomepageProductImage(product);
+                const media = image
+                    ? `<img src="${escapeHTML(image)}" alt="${escapeHTML(product.name || 'KEM product')}" loading="lazy" decoding="async">`
+                    : '<div class="home-product-image-fallback" aria-hidden="true">KEM</div>';
+                const category = String(product.category || '').trim();
+                return `<article class="home-product-card">
+                    <a class="home-product-link" href="?product=${id}" data-home-product-id="${id}">
+                        <div class="home-product-media">${media}</div>
+                        <div class="home-product-info">
+                            <h3 class="home-product-name">${escapeHTML(product.name || 'KEM product')}</h3>
+                            <span class="home-product-price">${escapeHTML(formatHomepagePrice(product.price))}</span>
+                            ${category ? `<p class="home-product-meta">${escapeHTML(category)}</p>` : ''}
+                        </div>
+                    </a>
+                </article>`;
+            }).join('');
+
+            grid.querySelectorAll('a[data-home-product-id]').forEach(link => {
+                link.addEventListener('click', event => {
+                    event.preventDefault();
+                    openProductDetail(Number(link.dataset.homeProductId));
+                });
+            });
+        }
+
+        function getHomepageCategoryProducts(category) {
+            const active = getHomepageActiveProducts();
+            if (category?.displayType === 'products') {
+                const selected = new Set((category.selectedItems || []).map(String));
+                return active.filter(product => selected.has(String(product.id)));
+            }
+            if (category?.displayType === 'collections') {
+                const selected = new Set((category.selectedItems || []).map(String));
+                return active.filter(product => selected.has(String(product.category || '')));
+            }
+            return active.filter(product => String(product.category || '') === String(category?.name || ''));
+        }
+
+        function renderHomepageCategories() {
+            const section = document.getElementById('collections');
+            const grid = document.getElementById('homeCategoryGrid');
+            if (!section || !grid) return;
+
+            const realCategories = categories
+                .filter(category => category && String(category.name || '').trim() && category.visible !== false)
+                .map(category => ({ category, matchingProducts: getHomepageCategoryProducts(category) }))
+                .filter(entry => entry.matchingProducts.length > 0)
+                .slice(0, 3);
+
+            if (!realCategories.length) {
+                grid.replaceChildren();
+                section.hidden = true;
+                return;
+            }
+
+            grid.innerHTML = realCategories.map(({ category, matchingProducts }) => {
+                const imageProduct = matchingProducts.find(product => getHomepageProductImage(product));
+                const image = imageProduct ? getHomepageProductImage(imageProduct) : '';
+                const media = image
+                    ? `<img src="${escapeHTML(image)}" alt="" loading="lazy" decoding="async">`
+                    : '<div class="home-category-image-fallback" aria-hidden="true">KEM</div>';
+                const description = String(category.description || '').trim();
+                return `<a class="home-category-card" href="#shop" data-home-category-id="${Number(category.id)}">
+                    <span class="home-category-media">${media}</span>
+                    <span class="home-category-copy">
+                        <span class="home-category-name">${escapeHTML(category.name)}</span>
+                        ${description ? `<span class="home-category-desc">${escapeHTML(description)}</span>` : ''}
+                    </span>
+                </a>`;
+            }).join('');
+
+            grid.querySelectorAll('a[data-home-category-id]').forEach(link => {
+                link.addEventListener('click', event => {
+                    event.preventDefault();
+                    showCategoryPage(Number(link.dataset.homeCategoryId));
+                });
+            });
+            section.hidden = false;
+        }
+
+        function renderHomepage() {
+            renderHomeHeroProduct();
+            renderHomepageFeaturedProducts();
+            renderHomepageCategories();
+        }
+
         function goToShop(category) {
             // Scroll to shop section
             document.getElementById('shop').scrollIntoView({ behavior: 'smooth' });
@@ -5111,8 +5643,32 @@
             const map={primary:'primaryColor',accent:'accentColor',secondary:'secondaryColor',bg:'bgColor'}; Object.entries(map).forEach(([key,id])=>{const el=document.getElementById(id);if(el)el.value=safe[key];});
         }
 
+        function getHomepageAboutPresentation(titleValue, contentValue) {
+            const rawContent = String(contentValue || '').trim();
+            const normalized = rawContent.toLowerCase().replaceAll('’', "'");
+            const legacyPlaceholder = normalized.includes("isn't just a clothing brand") && normalized.includes('movement') && normalized.includes('sustainable practices');
+            if (!rawContent || legacyPlaceholder) {
+                return {
+                    title: 'KEM',
+                    content: 'KEM is an Egyptian streetwear brand. Explore the current clothing collection.'
+                };
+            }
+            return { title: String(titleValue || 'KEM'), content: rawContent };
+        }
+
         function applyAboutSectionData(data) {
-            if(!data||typeof data!=='object')return; aboutSectionData={title:String(data.title||aboutSectionData.title),content:String(data.content||aboutSectionData.content),stats:Array.isArray(data.stats)?data.stats.slice(0,8):aboutSectionData.stats}; const title=document.getElementById('aboutSectionTitle'),content=document.getElementById('aboutSectionContent'); if(title)title.textContent=aboutSectionData.title;if(content)content.textContent=aboutSectionData.content;renderAboutStats();
+            if (!data || typeof data !== 'object') return;
+            aboutSectionData = {
+                title: String(data.title || aboutSectionData.title),
+                content: String(data.content || aboutSectionData.content),
+                stats: Array.isArray(data.stats) ? data.stats.slice(0, 8) : aboutSectionData.stats
+            };
+            const presentation = getHomepageAboutPresentation(aboutSectionData.title, aboutSectionData.content);
+            const title = document.getElementById('aboutSectionTitle');
+            const content = document.getElementById('aboutSectionContent');
+            if (title) title.textContent = presentation.title;
+            if (content) content.textContent = presentation.content;
+            renderAboutStats();
         }
 
         // Color Theme Functions
@@ -5325,6 +5881,7 @@
             // Initialize EmailJS (for email notifications)
             emailjs.init("VEtv_mCxT8N5zV8yy"); // Replace with your EmailJS public key
             
+            renderHomepage();
             renderShopProducts();
             renderCategoriesDropdown();
             renderShopFilters();
@@ -5605,8 +6162,8 @@
         function setupPublicListeners() {
             if (!firebaseInitialized) return;
             const bindings = [
-                ['products', data => { products = firebaseList(data); renderShopProducts(); }],
-                ['categories', data => { categories = firebaseList(data); renderCategoriesDropdown(); renderShopFilters(); renderShopProducts(); }],
+                ['products', data => { products = firebaseList(data); renderHomepage(); renderShopProducts(); }],
+                ['categories', data => { categories = firebaseList(data); renderHomepageCategories(); renderCategoriesDropdown(); renderShopFilters(); renderShopProducts(); }],
                 ['announcements', data => { announcements = firebaseList(data); }],
                 ['productDiscounts', data => { productDiscounts = firebaseList(data); renderShopProducts(); }],
                 ['orderDiscounts', data => { thresholdDiscounts = firebaseList(data); }],
@@ -7992,17 +8549,7 @@
 
         function renderAboutStats() {
             const container = document.getElementById('aboutStatsContainer');
-            if (!aboutSectionData.stats || aboutSectionData.stats.length === 0) {
-                container.innerHTML = '';
-                return;
-            }
-
-            container.innerHTML = aboutSectionData.stats.map(stat => `
-                <div class="stat-item">
-                    <div class="stat-number">${stat.number}</div>
-                    <div class="stat-label">${stat.label}</div>
-                </div>
-            `).join('');
+            if (container) container.replaceChildren();
         }
 
         async function updateAboutSection() { const title=document.getElementById('aboutTitle').value.trim(),content=document.getElementById('aboutContent').value.trim(); if(!title||!content){alert('Please fill in both title and content');return;} const nextAbout={title,content,stats:(aboutSectionData.stats||[]).map(x=>({number:String(x.number||''),label:String(x.label||'')})).slice(0,8)}; const next={...storeSettings,aboutSection:nextAbout}; try{await saveToFirebase('storeSettings',next);storeSettings=next;applyAboutSectionData(nextAbout);alert('About section saved successfully.');}catch(error){console.error('About section save failed:',error);alert(error?.message||'Unable to save About section.');} }
