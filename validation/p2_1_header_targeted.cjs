@@ -209,10 +209,16 @@ function seconds(value) {
         await page.evaluate(() => closeCart());
         check(!(await page.locator('#cartPage').evaluate(el=>el.classList.contains('active'))), 'Existing cart close behavior remains intact');
 
-        await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
+        await page.evaluate(() => {
+          const body=document.body;
+          body.setAttribute('tabindex','-1');
+          body.focus();
+          window.scrollTo(0, 0);
+        });
         await page.keyboard.press('Tab');
         const focusStyle = await page.evaluate(() => {
           const el=document.activeElement, s=getComputedStyle(el);
+          document.body.removeAttribute('tabindex');
           return { id:el.id, outline:s.outlineStyle, width:s.outlineWidth, color:s.outlineColor };
         });
         check(focusStyle.id === 'mobileNavToggle' && focusStyle.outline !== 'none' && Number.parseFloat(focusStyle.width) >= 3, 'Header retains strong visible keyboard focus', JSON.stringify(focusStyle));
