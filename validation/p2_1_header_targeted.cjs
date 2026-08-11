@@ -1,4 +1,6 @@
 const { chromium } = require('playwright');
+const { initializeApp, deleteApp } = require('../functions/node_modules/firebase-admin/app');
+const { getDatabase } = require('../functions/node_modules/firebase-admin/database');
 
 const BASE = 'http://127.0.0.1:5000';
 const widths = [360, 375, 390, 414, 768, 1024, 1440];
@@ -28,6 +30,17 @@ function seconds(value) {
 }
 
 (async () => {
+  // The permanent smoke fixture intentionally omits `visible` because P1 tests do not
+  // require the dynamic navigation dropdown. P2.1 specifically must exercise visible
+  // category destinations, so enrich only this isolated emulator fixture, not app code.
+  const adminApp = initializeApp({
+    projectId: 'demo-kem-validation',
+    databaseURL: 'http://127.0.0.1:9000?ns=demo-kem-validation-default-rtdb',
+  }, 'p2-1-header-targeted');
+  const adminDb = getDatabase(adminApp);
+  await adminDb.ref('categories/0/visible').set(true);
+  await adminDb.ref('categories/1/visible').set(true);
+
   const browser = await chromium.launch({ headless: true, executablePath: process.env.CHROME_PATH });
   try {
     for (const width of widths) {
@@ -42,7 +55,8 @@ function seconds(value) {
 
       await page.goto(BASE, { waitUntil: 'domcontentloaded' });
       await page.waitForFunction(() => document.querySelectorAll('#shopProductsGrid .product-card').length >= 2, null, { timeout: 20000 });
-      await page.waitForTimeout(120);
+      await page.waitForFunction(() => document.querySelectorAll('#categoriesDropdown .nav-dropdown-item').length >= 2, null, { timeout: 10000 });
+      await page.waitForTimeout(100);
 
       const base = await page.evaluate(() => {
         const rect = el => {
@@ -58,6 +72,7 @@ function seconds(value) {
         const cart = document.querySelector('#cartBadge');
         const toggle = document.querySelector('#mobileNavToggle');
         const desktopSearch = document.querySelector('#headerSearch');
+        const desktopSearchWrap = desktopSearch.closest('.header-search');
         const navLinks = document.querySelector('#primaryNav');
         return {
           viewport: innerWidth,
@@ -66,10 +81,9 @@ function seconds(value) {
           bodyOverflowX: style(document.body).overflowX,
           header: rect(header), shell: rect(shell), logo: rect(logo), actions: rect(actions), auth: rect(auth), cart: rect(cart), toggle: rect(toggle),
           toggleDisplay: style(toggle).display,
-          desktopSearchDisplay: style(desktopSearch).display,
+          desktopSearchWrapDisplay: style(desktopSearchWrap).display,
           desktopSearch: rect(desktopSearch),
           navDisplay: style(navLinks).display,
-          logoText: logo.textContent.trim(),
           cartDisplay: style(cart).display,
         };
       });
@@ -95,7 +109,7 @@ function seconds(value) {
 
       if (width <= 960) {
         check(base.toggleDisplay !== 'none' && base.toggle.width >= 44 && base.toggle.height >= 44, `Mobile menu target is usable at ${width}px`, `${base.toggleDisplay} ${base.toggle.width}x${base.toggle.height}`);
-        check(base.desktopSearchDisplay === 'none', `Desktop search yields to mobile menu at ${width}px`, base.desktopSearchDisplay);
+        check(base.desktopSearchWrapDisplay === 'none' && base.desktopSearch.width === 0, `Desktop search yields to mobile menu at ${width}px`, `${base.desktopSearchWrapDisplay}/${base.desktopSearch.width}px`);
         check(!intersects(base.toggle, base.logo, 0.5), `Menu and logo do not overlap at ${width}px`, JSON.stringify({toggle:base.toggle,logo:base.logo}));
         check(!intersects(base.logo, base.actions, 0.5), `Logo and account/cart do not overlap at ${width}px`, JSON.stringify({logo:base.logo,actions:base.actions}));
 
@@ -128,7 +142,7 @@ function seconds(value) {
           width: document.documentElement.scrollWidth,
         }));
         check(categoryOpen.active && categoryOpen.expanded === 'true', `Categories opens accessibly at ${width}px`, JSON.stringify(categoryOpen));
-        check(categoryOpen.buttons.length > 0 && categoryOpen.buttons.every(x => x.tag === 'BUTTON' && x.h >= 44), `Category choices are semantic 44px buttons at ${width}px`, JSON.stringify(categoryOpen.buttons));
+        check(categoryOpen.buttons.length >= 2 && categoryOpen.buttons.every(x => x.tag === 'BUTTON' && x.h >= 44), `Category choices are semantic 44px buttons at ${width}px`, JSON.stringify(categoryOpen.buttons));
         check(categoryOpen.width <= width, `Categories dropdown creates no overflow at ${width}px`, `${categoryOpen.width}/${width}`);
         await page.keyboard.press('Escape');
         check(!(await page.locator('#categoriesDropdown').evaluate(el => el.classList.contains('active'))) && await page.locator('.nav-dropdown-btn').evaluate(el => document.activeElement === el), `Escape closes categories and restores focus at ${width}px`);
@@ -136,7 +150,7 @@ function seconds(value) {
         check(!(await page.locator('#primaryNav').evaluate(el => el.classList.contains('mobile-open'))) && await page.locator('#mobileNavToggle').evaluate(el => document.activeElement === el), `Escape closes mobile menu and restores focus at ${width}px`);
       } else {
         check(base.toggleDisplay === 'none', `Desktop header hides mobile trigger at ${width}px`, base.toggleDisplay);
-        check(base.desktopSearchDisplay !== 'none' && base.desktopSearch.width > 0 && base.desktopSearch.height >= 44, `Desktop search is integrated at ${width}px`, JSON.stringify(base.desktopSearch));
+        check(base.desktopSearchWrapDisplay !== 'none' && base.desktopSearch.width > 0 && base.desktopSearch.height >= 44, `Desktop search is integrated at ${width}px`, JSON.stringify(base.desktopSearch));
         const desktopLayout = await page.evaluate(() => {
           const action=document.querySelector('.header-actions').getBoundingClientRect();
           const navEls=[...document.querySelectorAll('#primaryNav > li:not(.mobile-header-search)')].filter(el=>getComputedStyle(el).display!=='none');
@@ -163,7 +177,7 @@ function seconds(value) {
           buttons:[...document.querySelectorAll('#categoriesDropdown .nav-dropdown-item')].map(el=>({tag:el.tagName,h:el.getBoundingClientRect().height}))
         }));
         check(categoryDesktop.active && categoryDesktop.expanded === 'true', `Desktop categories opens by keyboard at ${width}px`);
-        check(categoryDesktop.buttons.length > 0 && categoryDesktop.buttons.every(x=>x.tag==='BUTTON'&&x.h>=44), `Desktop category choices are semantic buttons at ${width}px`);
+        check(categoryDesktop.buttons.length >= 2 && categoryDesktop.buttons.every(x=>x.tag==='BUTTON'&&x.h>=44), `Desktop category choices are semantic buttons at ${width}px`, JSON.stringify(categoryDesktop.buttons));
         await page.keyboard.press('Escape');
         check(!(await page.locator('#categoriesDropdown').evaluate(el=>el.classList.contains('active'))) && await page.locator('.nav-dropdown-btn').evaluate(el=>document.activeElement===el), `Desktop categories closes with Escape at ${width}px`);
       }
@@ -195,9 +209,13 @@ function seconds(value) {
         await page.evaluate(() => closeCart());
         check(!(await page.locator('#cartPage').evaluate(el=>el.classList.contains('active'))), 'Existing cart close behavior remains intact');
 
-        await page.focus('#mobileNavToggle');
-        const focusStyle = await page.locator('#mobileNavToggle').evaluate(el=>({outline:getComputedStyle(el).outlineStyle,width:getComputedStyle(el).outlineWidth}));
-        check(focusStyle.outline !== 'none' && Number.parseFloat(focusStyle.width) >= 3, 'Header retains strong visible keyboard focus', JSON.stringify(focusStyle));
+        await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
+        await page.keyboard.press('Tab');
+        const focusStyle = await page.evaluate(() => {
+          const el=document.activeElement, s=getComputedStyle(el);
+          return { id:el.id, outline:s.outlineStyle, width:s.outlineWidth, color:s.outlineColor };
+        });
+        check(focusStyle.id === 'mobileNavToggle' && focusStyle.outline !== 'none' && Number.parseFloat(focusStyle.width) >= 3, 'Header retains strong visible keyboard focus', JSON.stringify(focusStyle));
       }
 
       check(pageErrors.length === 0, `No uncaught browser errors at ${width}px`, JSON.stringify(pageErrors));
@@ -206,6 +224,8 @@ function seconds(value) {
     }
   } finally {
     await browser.close();
+    adminDb.goOffline();
+    await deleteApp(adminApp);
   }
 
   console.log(`P2_1_HEADER_RESULT ${passes} passed, ${failures.length} failed`);
