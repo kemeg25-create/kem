@@ -1,0 +1,41 @@
+name: Update P2.2 link harness
+on:
+  push:
+    branches:
+      - agent/p1-final-validation
+    paths:
+      - .github/workflows/update-p2-2-harness-links.yml
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update only P2.2 targeted category-link expectations
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('validation/p2_2_homepage_targeted.cjs')
+          s=p.read_text()
+          replacements=[
+            ("categoryCards: categoryCards.map(card => ({ tag:card.tagName, ...rect(card) })),", "categoryCards: categoryCards.map(card => ({ tag:card.tagName, href:card.getAttribute('href'), ...rect(card) })),", 'category mapping'),
+            ("check(state.categoryCards.every(card => card.tag === 'BUTTON' && card.height >= 44 && inside(card, width)), `Category destinations are semantic usable controls at ${width}px`, JSON.stringify(state.categoryCards));", "check(state.categoryCards.every(card => card.tag === 'A' && card.href === '#shop' && card.height >= 44 && inside(card, width)), `Category destinations are semantic navigation links at ${width}px`, JSON.stringify(state.categoryCards));", 'category semantic assertion'),
+            ("await page.locator('#homeCategoryGrid button[data-home-category-id=\"1\"]').click();", "await page.locator('#homeCategoryGrid a[data-home-category-id=\"1\"]').click();", 'category click selector'),
+          ]
+          for old,new,label in replacements:
+              assert s.count(old)==1, f'{label} anchor count {s.count(old)}'
+              s=s.replace(old,new,1)
+          p.write_text(s)
+          print('Updated validation-only P2.2 category expectations to semantic links')
+          PY
+          node --check validation/p2_2_homepage_targeted.cjs
+          git diff --check
+          test "$(git diff --name-only)" = "validation/p2_2_homepage_targeted.cjs"
+      - name: Commit validation-only harness update
+        run: |
+          git config user.name "kemeg25-create"
+          git config user.email "kem.eg25@gmail.com"
+          git add validation/p2_2_homepage_targeted.cjs
+          git commit -m "Validate P2.2 category navigation links"
+          git push
