@@ -53,7 +53,12 @@ jobs:
           new_quote="    quoteTotalText: document.getElementById('checkoutTotal')?.textContent || null,"
           if old_quote not in h:
               raise SystemExit('checkout instrumentation anchor not found')
-          p.write_text(h.replace(old_quote,new_quote,1))
+          h=h.replace(old_quote,new_quote,1)
+          old_password="await page.evaluate(async () => auth.signInWithEmailAndPassword('unverified@example.com', PASSWORD));"
+          new_password="await page.evaluate(async (password) => auth.signInWithEmailAndPassword('unverified@example.com', password), PASSWORD);"
+          if old_password not in h:
+              raise SystemExit('unverified customer login harness anchor not found')
+          p.write_text(h.replace(old_password,new_password,1))
           PY
       - name: Start Firebase Emulator Suite
         run: |
