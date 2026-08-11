@@ -1,0 +1,44 @@
+name: P2.3 fix frozen no-results contract
+on:
+  push:
+    branches:
+      - agent/p1-final-validation
+    paths:
+      - .github/workflows/p2-3-fix-no-results.yml
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/p2-visual-ux
+          fetch-depth: 0
+      - name: Verify current P2.3 candidate
+        run: |
+          test "$(git rev-parse HEAD)" = "0ecd96acd53a9cf6f1b2a02661c183e84cfcc130"
+          test "$(git rev-parse HEAD^)" = "6534f9558e94f91b849c366489246578a5ddc490"
+          test "$(git diff --name-only HEAD^ HEAD)" = "index.html"
+      - name: Restore frozen zero-results wording and amend P2.3
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          h=p.read_text()
+          old="            if (status) status.textContent = `${shown.length} product${shown.length === 1 ? '' : 's'}`;"
+          new="            if (status) status.textContent = shown.length ? `${shown.length} product${shown.length === 1 ? '' : 's'}` : '0 products found';"
+          assert h.count(old)==1
+          h=h.replace(old,new,1)
+          p.write_text(h)
+          PY
+          git diff --check
+          test "$(git diff --name-only)" = "index.html"
+          git config user.name "kemeg25-create"
+          git config user.email "kem.eg25@gmail.com"
+          git add index.html
+          git commit --amend --no-edit
+          test "$(git rev-parse HEAD^)" = "6534f9558e94f91b849c366489246578a5ddc490"
+          test "$(git diff --name-only HEAD^ HEAD)" = "index.html"
+          test "$(git log -1 --format=%s)" = "Implement P2.3 collection and shop redesign"
+          git push --force-with-lease=agent/p2-visual-ux:0ecd96acd53a9cf6f1b2a02661c183e84cfcc130 origin HEAD:agent/p2-visual-ux
