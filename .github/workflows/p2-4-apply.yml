@@ -1,0 +1,58 @@
+name: P2.4 product detail apply
+on:
+  push:
+    branches:
+      - agent/p1-final-validation
+    paths:
+      - .github/workflows/p2-4-apply.yml
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/p2-visual-ux
+          fetch-depth: 0
+      - name: Verify approved P2.3 source
+        run: |
+          test "$(git rev-parse HEAD)" = "6c5a6b23cc438a72b39027b65770980589d1cc7d"
+          test -z "$(git status --porcelain)"
+      - name: Apply contained P2.4 product detail redesign
+        run: |
+          git show origin/agent/p1-final-validation:validation/apply_p2_4_product_detail.py > /tmp/apply_p2_4_product_detail.py
+          python3 /tmp/apply_p2_4_product_detail.py
+          git diff --check
+          test "$(git diff --name-only)" = "index.html"
+          python3 - <<'PY' > /tmp/index-inline.js
+          from pathlib import Path
+          import re
+          h = Path('index.html').read_text()
+          for attrs, body in re.findall(r'<script([^>]*)>(.*?)</script>', h, re.S | re.I):
+              if 'application/ld+json' in attrs.lower() or not body.strip():
+                  continue
+              print(body)
+          PY
+          node --check /tmp/index-inline.js
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          h=Path('index.html').read_text()
+          assert 'P2.4 — PRODUCT DETAIL' in h
+          assert 'P2.3 — COLLECTION / SHOP' in h
+          assert "'0 products found'" in h
+          assert h.count("window.addEventListener('popstate'")==1
+          assert h.count("document.addEventListener('keydown', event => {")==1
+          body=re.search(r'body\s*\{(.*?)\}',h,re.S).group(1)
+          assert 'overflow-x: hidden' not in body
+          PY
+      - name: Commit contained production change
+        run: |
+          git config user.name "kemeg25-create"
+          git config user.email "kem.eg25@gmail.com"
+          git add index.html
+          git commit -m "Implement P2.4 product detail redesign"
+          test "$(git rev-parse HEAD^)" = "6c5a6b23cc438a72b39027b65770980589d1cc7d"
+          test "$(git diff --name-only HEAD^ HEAD)" = "index.html"
+          git push origin HEAD:agent/p2-visual-ux
