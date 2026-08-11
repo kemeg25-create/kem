@@ -1,0 +1,156 @@
+name: P2.4 product detail validation
+on:
+  push:
+    branches:
+      - agent/p1-final-validation
+    paths:
+      - .github/workflows/p2-4-validation.yml
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Load exact P2.4 source and verify contained scope
+        run: |
+          git fetch origin agent/p2-visual-ux
+          P24=053968b477852c14569998ef9f5e1eb575d44437
+          P23=6c5a6b23cc438a72b39027b65770980589d1cc7d
+          test "$(git rev-parse origin/agent/p2-visual-ux)" = "$P24"
+          test "$(git rev-parse $P24^)" = "$P23"
+          test "$(git rev-list --count $P23..$P24)" = "1"
+          test "$(git diff --name-only $P23 $P24)" = "index.html"
+          git diff --exit-code $P23 $P24 -- functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
+          git checkout $P24 -- index.html functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
+          git show a43242d59f8c258de698f4770d6e732b9ac00283:validation/p2_3_shop_targeted.cjs > /tmp/p2_3_shop_targeted.cjs
+          git show b49e760e0df1fba774d9a8e332a67dc1b84d568a:validation/p2_1_header_targeted.cjs > /tmp/p2_1_header_targeted.cjs
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          h=Path('index.html').read_text()
+          for item in ['P2.4 — PRODUCT DETAIL','class="product-detail-topbar"','aria-label="Decrease quantity"','product-detail-sale-label','data-recommended-product-id','function openProductDetail(productId, options = {})','function addToCartFromDetail()','P2.3 — COLLECTION / SHOP','id="shopSort"',"'0 products found'",'P2.2 — HOMEPAGE','P2.1 — HEADER / NAVIGATION','--color-kem-pink: #FF3366;','--container-customer: 1400px;','@media (prefers-reduced-motion: reduce)']:
+              assert item in h,item
+          body=re.search(r'body\s*\{(.*?)\}',h,re.S).group(1)
+          assert 'overflow-x: hidden' not in body
+          assert h.count("window.addEventListener('popstate'")==1
+          assert h.count("document.addEventListener('keydown', event => {")==1
+          assert 'Only ${Number(product.stock)} left in stock!' not in h
+          print('Exact P2.4 source and frozen P2 anchors verified')
+          PY
+      - name: Install emulator and Chromium tooling
+        run: |
+          npm --prefix functions install --ignore-scripts --no-audit --no-fund
+          npm init -y >/dev/null 2>&1
+          npm install --no-save --package-lock=false firebase-tools playwright >/dev/null
+          npx playwright install --with-deps chromium
+      - name: Prepare isolated emulator wiring only
+        run: |
+          python3 validation/prepare_emulator.py
+          python3 validation/patch_functions_runtime.py
+          python3 validation/full_runtime_patch.py
+          node --check functions/index.js
+          node --check validation/p2_4_product_detail_targeted.cjs
+          node --check /tmp/p2_3_shop_targeted.cjs
+          node --check validation/p2_2_homepage_targeted.cjs
+          node --check /tmp/p2_1_header_targeted.cjs
+          node --check validation/p1_reconciliation_targeted.cjs
+          node --check validation/dashboard_targeted.cjs
+          node --check validation/smoke.cjs
+          git diff -U0 053968b477852c14569998ef9f5e1eb575d44437 -- index.html functions/index.js > /tmp/runtime-app.diff || true
+          if grep -E 'P2\.4|product-detail|detailImage|detailGallery|detailSizes|detailColors|quantityInput|addToCartFromDetail|selectProductImage|selectProductVariant|loadRecommendedProducts|P2\.3|kem-shop|shop-product-grid|shopSort|renderShopProducts|getVisibleShopProducts|setShopSort|clearShopFilters|P2\.2|home-hero|renderHomepage|P2\.1|nav-shell|headerSearch|mobileHeaderSearch|setShopSearch|color-ink|prefers-reduced-motion|employeeModal\.active|orderRootRef|initialOrderRoot' /tmp/runtime-app.diff; then
+            cat /tmp/runtime-app.diff
+            echo 'Runtime preparation altered committed application behavior'
+            exit 1
+          fi
+          echo 'Runtime preparation is emulator endpoint/configuration wiring only'
+      - name: P2.4 seven-width product detail validation
+        env: &emulator_env
+          NODE_PATH: ${{ github.workspace }}/functions/node_modules:${{ github.workspace }}/node_modules
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+          FIREBASE_DATABASE_EMULATOR_HOST: 127.0.0.1:9000
+          FIREBASE_STORAGE_EMULATOR_HOST: 127.0.0.1:9199
+          GCLOUD_PROJECT: demo-kem-validation
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 180s node validation/p2_4_product_detail_targeted.cjs"
+      - name: Frozen P2.3 196-assertion catalogue validation
+        env: *emulator_env
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 170s node /tmp/p2_3_shop_targeted.cjs"
+      - name: Frozen P2.2 241-assertion homepage validation
+        env: *emulator_env
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 150s node validation/p2_2_homepage_targeted.cjs"
+      - name: Frozen P2.1 166-assertion header validation
+        env: *emulator_env
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 120s node /tmp/p2_1_header_targeted.cjs"
+      - name: Frozen P1 reconciliation validation
+        env: *emulator_env
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 90s node validation/p1_reconciliation_targeted.cjs"
+      - name: Frozen dashboard seven-width validation
+        env: *emulator_env
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 90s node validation/dashboard_targeted.cjs"
+      - name: Complete frozen P0/P1 79-assertion integration suite
+        env: *emulator_env
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 180s node validation/smoke.cjs"
+      - name: Restore exact production source and run final static security guards
+        if: always()
+        run: |
+          P24=053968b477852c14569998ef9f5e1eb575d44437
+          git checkout -- validation/smoke.cjs validation/seed.cjs
+          git checkout $P24 -- index.html functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
+          rm -f package.json package-lock.json firebase-debug.log database-debug.log ui-debug.log validation/*failure.png
+          rm -rf node_modules functions/node_modules functions/package-lock.json
+          node --check functions/index.js
+          python3 -m json.tool database.rules.json >/dev/null
+          python3 -m json.tool firebase.json >/dev/null
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re,subprocess,tempfile,os
+          h=Path('index.html').read_text(); b=Path('functions/index.js').read_text(); rules=json.loads(Path('database.rules.json').read_text())['rules']
+          for body in re.findall(r'<script\s+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',h,re.S|re.I): json.loads(body)
+          for attrs,body in re.findall(r'<script([^>]*)>(.*?)</script>',h,re.S|re.I):
+              if 'application/ld+json' in attrs.lower() or not body.strip(): continue
+              f=tempfile.NamedTemporaryFile('w',suffix='.js',delete=False); f.write(body); f.close()
+              try: subprocess.run(['node','--check',f.name],check=True)
+              finally: os.unlink(f.name)
+          assert h.count("window.addEventListener('popstate'")==1
+          assert h.count("document.addEventListener('keydown', event => {")==1
+          assert 'exports.revokeEmployeeSession' in b and 'auth.revokeRefreshTokens' in b and 'tokensValidAfterTime' in b and 'auth_time' in b
+          assert 'requireVerifiedCustomer' in b and 'email_verified' in b and "paymentMethod !== 'cod'" in b
+          assert "const orderRootRef = db.ref('/');" in b and 'const transaction = await orderRootRef.transaction((root) => {' in b
+          assert 'product.stock = currentStock - item.quantity' in b and 'request.data?.price' not in b
+          assert rules['orders']['.read'] is False and rules['orders']['.write'] is False
+          assert rules['employeeRoles']['.read'] is False and rules['employeeRoles']['.write'] is False
+          assert rules['coupons']['.read'] is False and rules['coupons']['.write'] is False
+          assert 'exports.getCustomerOrders' in b and 'exports.uploadProductImage' in b and "order?.customerUid === uid" in b
+          for text in ['P2.4 — PRODUCT DETAIL','class="product-detail-topbar"','aria-label="Decrease quantity"','product-detail-sale-label','data-recommended-product-id','function addToCartFromDetail()','P2.3 — COLLECTION / SHOP','id="shopSort"',"'0 products found'",'P2.2 — HOMEPAGE','P2.1 — HEADER / NAVIGATION','--color-kem-pink: #FF3366;','@media (prefers-reduced-motion: reduce)']:
+              assert text in h,text
+          body_css=re.search(r'body\s*\{(.*?)\}',re.search(r'<style>(.*?)</style>',h,re.S|re.I).group(1),re.S).group(1)
+          assert 'overflow-x: hidden' not in body_css
+          assert 'Only ${Number(product.stock)} left in stock!' not in h
+          print('Exact P2.4 source and frozen P0/P1/P2 guards verified')
+          PY
+          git diff --check
+          git diff --exit-code $P24 -- index.html functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
