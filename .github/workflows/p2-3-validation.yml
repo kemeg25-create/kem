@@ -1,0 +1,162 @@
+name: P2.3 collection and shop validation
+on:
+  push:
+    branches:
+      - agent/p1-final-validation
+    paths:
+      - .github/workflows/p2-3-validation.yml
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Load exact P2.3 production source and verify scope
+        run: |
+          git fetch origin agent/p2-visual-ux
+          test "$(git rev-parse origin/agent/p2-visual-ux)" = "0ecd96acd53a9cf6f1b2a02661c183e84cfcc130"
+          test "$(git diff --name-only 6534f9558e94f91b849c366489246578a5ddc490 0ecd96acd53a9cf6f1b2a02661c183e84cfcc130)" = "index.html"
+          test "$(git rev-list --count 6534f9558e94f91b849c366489246578a5ddc490..0ecd96acd53a9cf6f1b2a02661c183e84cfcc130)" = "1"
+          git diff --exit-code 6534f9558e94f91b849c366489246578a5ddc490 0ecd96acd53a9cf6f1b2a02661c183e84cfcc130 -- functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
+          git checkout 0ecd96acd53a9cf6f1b2a02661c183e84cfcc130 -- index.html functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
+          git show b49e760e0df1fba774d9a8e332a67dc1b84d568a:validation/p2_1_header_targeted.cjs > /tmp/p2_1_header_targeted.cjs
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          h=Path('index.html').read_text()
+          required_p20=['--color-ink: #0A0A0A;','--space-128: 128px;','--container-customer: 1400px;','--motion-standard: 200ms;','.kem-btn-primary','.kem-field-error','.kem-state-success','@media (prefers-reduced-motion: reduce)']
+          required_p21=['P2.1 — HEADER / NAVIGATION','class="nav-shell"','id="mobileNavToggle"','id="primaryNav"','id="headerSearch"','id="mobileHeaderSearch"','id="authButton"','id="cartBadge"','setCategoriesDropdownOpen(false);']
+          required_p22=['P2.2 — HOMEPAGE','id="homeHeroProduct"','id="homeFeaturedProducts"','id="homeCategoryGrid"','Streetwear from KEM. Shop the current collection.','renderHomepage();','renderHomepageCategories();','fetchpriority="high"','loading="lazy" decoding="async"']
+          required_p23=['P2.3 — COLLECTION / SHOP','class="shop kem-shop"','id="shopTitle"','id="shopSort"','class="shop-product-grid" id="shopProductsGrid"','class="cart-page collection-page"','function getVisibleShopProducts()','function setShopSort(value)','function clearShopFilters()','aria-pressed="${shopCategoryFilter === name ? \'true\' : \'false\'}"','data-shop-product-id=','data-category-add-id=']
+          for item in required_p20+required_p21+required_p22+required_p23: assert item in h,item
+          assert '<section class="shop" id="shop" style=' not in h
+          assert 'onclick="openProductDetail(${Number(p.id)})"' not in h
+          body=re.search(r'body\s*\{(.*?)\}',h,re.S).group(1)
+          assert 'overflow-x: hidden' not in body
+          assert h.count("window.addEventListener('popstate'")==1
+          assert h.count("document.addEventListener('keydown', event => {")==1
+          print('Exact P2.3 production scope plus frozen P2.0/P2.1/P2.2 anchors verified')
+          PY
+      - name: Install emulator and Chromium tooling
+        run: |
+          npm --prefix functions install --ignore-scripts --no-audit --no-fund
+          npm init -y >/dev/null 2>&1
+          npm install --no-save --package-lock=false firebase-tools playwright >/dev/null
+          npx playwright install --with-deps chromium
+      - name: Prepare emulator routing only
+        run: |
+          python3 validation/prepare_emulator.py
+          python3 validation/patch_functions_runtime.py
+          python3 validation/full_runtime_patch.py
+          python3 -m json.tool firebase.json >/dev/null
+          node --check functions/index.js
+          node --check validation/p2_3_shop_targeted.cjs
+          node --check validation/p2_2_homepage_targeted.cjs
+          node --check /tmp/p2_1_header_targeted.cjs
+          node --check validation/p1_reconciliation_targeted.cjs
+          node --check validation/dashboard_targeted.cjs
+          node --check validation/smoke.cjs
+          git diff -U0 0ecd96acd53a9cf6f1b2a02661c183e84cfcc130 -- index.html functions/index.js > /tmp/runtime-app.diff || true
+          if grep -E 'P2\.3|kem-shop|shop-product-grid|shopSort|renderShopProducts|getVisibleShopProducts|setShopSort|clearShopFilters|renderCategoryProducts|P2\.2|home-hero|homeFeaturedProducts|homeCategoryGrid|renderHomepage|P2\.1|nav-shell|header-actions|headerSearch|mobileHeaderSearch|setCategoriesDropdownOpen|toggleMobileNav|setShopSearch|color-ink|prefers-reduced-motion|about-content|data-category|data-image-index|data-variant-index|employeeModal\.active|orderRootRef|initialOrderRoot' /tmp/runtime-app.diff; then
+            echo 'Runtime preparation altered committed P2.3/P2.2/P2.1/P2.0/frozen application behavior'
+            cat /tmp/runtime-app.diff
+            exit 1
+          fi
+          echo 'Runtime preparation is limited to emulator endpoint/configuration wiring'
+      - name: P2.3 seven-width catalogue browser validation
+        env: &emulator_env
+          NODE_PATH: ${{ github.workspace }}/functions/node_modules:${{ github.workspace }}/node_modules
+          FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
+          FIREBASE_DATABASE_EMULATOR_HOST: 127.0.0.1:9000
+          FIREBASE_STORAGE_EMULATOR_HOST: 127.0.0.1:9199
+          GCLOUD_PROJECT: demo-kem-validation
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 160s node validation/p2_3_shop_targeted.cjs"
+      - name: Frozen P2.2 241-assertion homepage validation
+        env: *emulator_env
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 150s node validation/p2_2_homepage_targeted.cjs"
+      - name: Frozen P2.1 166-assertion header validation
+        env: *emulator_env
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 120s node /tmp/p2_1_header_targeted.cjs"
+      - name: Frozen P1 reconciliation browser validation
+        env: *emulator_env
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 90s node validation/p1_reconciliation_targeted.cjs"
+      - name: Frozen P1 dashboard responsive validation
+        env: *emulator_env
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 90s node validation/dashboard_targeted.cjs"
+      - name: Complete frozen P0/P1 real-browser integration suite
+        env: *emulator_env
+        run: |
+          export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
+          npx firebase emulators:exec --project demo-kem-validation --only auth,database,functions,hosting,storage --log-verbosity=INFO "node validation/seed.cjs && timeout 180s node validation/smoke.cjs"
+      - name: Restore exact P2.3 source and rerun frozen guards
+        if: always()
+        run: |
+          git checkout -- validation/smoke.cjs validation/seed.cjs
+          git checkout 0ecd96acd53a9cf6f1b2a02661c183e84cfcc130 -- index.html functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
+          rm -f package.json package-lock.json firebase-debug.log database-debug.log ui-debug.log validation/*failure.png
+          rm -rf node_modules functions/node_modules functions/package-lock.json
+          node --check functions/index.js
+          python3 -m json.tool database.rules.json >/dev/null
+          python3 -m json.tool firebase.json >/dev/null
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,re,subprocess,tempfile,os
+          h=Path('index.html').read_text(); b=Path('functions/index.js').read_text(); rules=json.loads(Path('database.rules.json').read_text())['rules']
+          blocks=re.findall(r'<script\s+type=["\']application/ld\+json["\'][^>]*>(.*?)</script>',h,re.S|re.I)
+          assert blocks
+          for body in blocks: json.loads(body)
+          for attrs,body in re.findall(r'<script([^>]*)>(.*?)</script>',h,re.S|re.I):
+              if 'application/ld+json' in attrs.lower() or not body.strip(): continue
+              f=tempfile.NamedTemporaryFile('w',suffix='.js',delete=False);f.write(body);f.close()
+              try: subprocess.run(['node','--check',f.name],check=True)
+              finally: os.unlink(f.name)
+          assert h.count("window.addEventListener('popstate'")==1
+          assert h.count("document.addEventListener('keydown', event => {")==1
+          assert 'exports.revokeEmployeeSession' in b and 'auth.revokeRefreshTokens' in b
+          assert 'tokensValidAfterTime' in b and 'auth_time' in b
+          assert 'requireVerifiedCustomer' in b and 'email_verified' in b
+          assert "paymentMethod !== 'cod'" in b
+          assert "const orderRootRef = db.ref('/');" in b
+          assert 'const transaction = await orderRootRef.transaction((root) => {' in b
+          assert 'product.stock = currentStock - item.quantity' in b
+          assert rules['orders']['.read'] is False and rules['orders']['.write'] is False
+          assert rules['employeeRoles']['.read'] is False and rules['employeeRoles']['.write'] is False
+          assert rules['coupons']['.read'] is False and rules['coupons']['.write'] is False
+          assert 'request.data?.price' not in b
+          assert 'exports.getCustomerOrders' in b and 'exports.uploadProductImage' in b
+          assert "order?.customerUid === uid" in b
+          assert '.about-content, .about-content > * { min-width:0; }' in h
+          assert "#employeeModal.active,.form-modal.active,.auth-modal.active,.product-detail-modal.active" in h
+          for text in ['--color-kem-pink: #FF3366;','--space-128: 128px;','--container-customer: 1400px;','--motion-standard: 200ms;','.kem-btn-primary','.kem-field-error','.kem-state-success','@media (prefers-reduced-motion: reduce)','P2.1 — HEADER / NAVIGATION','class="nav-shell"','id="headerSearch"','id="mobileHeaderSearch"','id="authButton"','id="cartBadge"','P2.2 — HOMEPAGE','id="homeHeroProduct"','id="homeFeaturedProducts"','id="homeCategoryGrid"','renderHomepage();','renderHomepageCategories();','P2.3 — COLLECTION / SHOP','class="shop kem-shop"','id="shopSort"','class="shop-product-grid" id="shopProductsGrid"','function getVisibleShopProducts()','function setShopSort(value)','function clearShopFilters()','class="cart-page collection-page"']:
+              assert text in h,text
+          style=re.search(r'<style>(.*?)</style>',h,re.S|re.I).group(1)
+          body_css=re.search(r'body\s*\{(.*?)\}',style,re.S).group(1)
+          assert 'overflow-x: hidden' not in body_css
+          main=h[h.index('<div id="mainSite">'):h.index('<!-- Category Page -->')]
+          for item in ['<div class="floating-shapes">','URBAN CORE','NEON NIGHTS','MINIMAL EDGE','10K+','500+']:
+              assert item not in main,item
+          print('Exact P2.3 source, P2.0/P2.1/P2.2 anchors, and frozen P0/P1 guards verified')
+          PY
+          git diff --check
+          git diff --exit-code 0ecd96acd53a9cf6f1b2a02661c183e84cfcc130 -- index.html functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
