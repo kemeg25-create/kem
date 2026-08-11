@@ -78,7 +78,8 @@ function check(ok, label, detail = '') {
         check(hover.transform === 'none' && hover.shadow === 'none', 'Product card hover stays restrained', JSON.stringify(hover));
 
         const shapeMotion = await page.locator('.shape').first().evaluate(el => ({ duration: getComputedStyle(el).animationDuration, iterations: getComputedStyle(el).animationIterationCount }));
-        check(shapeMotion.duration === '0.00001s' || shapeMotion.duration === '0s', 'Reduced motion suppresses decorative animation', JSON.stringify(shapeMotion));
+        const reducedSeconds = Number.parseFloat(shapeMotion.duration);
+        check(Number.isFinite(reducedSeconds) && reducedSeconds <= 0.00001 && shapeMotion.iterations === '1', 'Reduced motion suppresses decorative animation', JSON.stringify(shapeMotion));
 
         await page.locator('#authButton').click();
         await page.waitForSelector('#authModal.active');
