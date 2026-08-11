@@ -1,0 +1,65 @@
+name: Apply P1 dashboard responsive fix
+on:
+  push:
+    branches:
+      - agent/p1-dashboard-apply
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/p1-remediation
+          fetch-depth: 0
+      - name: Apply only approved mobile dashboard header fix
+        run: |
+          test "$(git rev-parse HEAD)" = "317cf982aa1ae0cb4f39550521b8899dba5f88d3"
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          h=p.read_text()
+          anchor="""            .section-title { font-size:2.5rem; }
+
+            .hero-title {
+          """
+          replacement="""            .section-title { font-size:2.5rem; }
+            .dashboard { padding-left:1rem; padding-right:1rem; }
+            .dashboard-header { flex-direction:column; align-items:stretch; gap:1rem; }
+            .dashboard-header h1 { min-width:0; overflow-wrap:anywhere; }
+            .dashboard-header-actions { width:100%; min-width:0; flex-wrap:wrap; justify-content:flex-start; }
+
+            .hero-title {
+          """
+          if h.count(anchor) != 1:
+              raise SystemExit(f'expected one mobile dashboard anchor, found {h.count(anchor)}')
+          h=h.replace(anchor,replacement,1)
+          p.write_text(h)
+          PY
+          git diff --check
+          test "$(git diff --name-only)" = "index.html"
+          python3 - <<'PY'
+          from pathlib import Path
+          h=Path('index.html').read_text()
+          expected=[
+            '.dashboard { padding-left:1rem; padding-right:1rem; }',
+            '.dashboard-header { flex-direction:column; align-items:stretch; gap:1rem; }',
+            '.dashboard-header h1 { min-width:0; overflow-wrap:anywhere; }',
+            '.dashboard-header-actions { width:100%; min-width:0; flex-wrap:wrap; justify-content:flex-start; }',
+          ]
+          for line in expected:
+              assert h.count(line) == 1, (line, h.count(line))
+          print('Approved dashboard responsive rules inserted exactly once')
+          PY
+          git diff -- index.html
+      - name: Commit and push remediation fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --check
+          test "$(git diff --cached --name-only)" = "index.html"
+          git commit -m "Fix mobile employee dashboard header overflow"
+          git push origin HEAD:agent/p1-remediation
