@@ -108,7 +108,7 @@ function durationSeconds(value) {
           featuredHrefs: featuredLinks.map(el => el.getAttribute('href')),
           featuredImageLoading: [...document.querySelectorAll('.home-product-media img')].map(el => el.getAttribute('loading')),
           categorySectionHidden: categorySection.hidden,
-          categoryCards: categoryCards.map(card => ({ tag:card.tagName, ...rect(card) })),
+          categoryCards: categoryCards.map(card => ({ tag:card.tagName, href:card.getAttribute('href'), ...rect(card) })),
           categoryNames: [...document.querySelectorAll('.home-category-name')].map(el => el.textContent.trim()),
           categoryImageLoading: [...document.querySelectorAll('.home-category-media img')].map(el => el.getAttribute('loading')),
           about: rect(about),
@@ -155,7 +155,7 @@ function durationSeconds(value) {
       check(state.featuredImageLoading.length === 2 && state.featuredImageLoading.every(value => value === 'lazy'), `Below-fold featured images are lazy-loaded at ${width}px`, JSON.stringify(state.featuredImageLoading));
 
       check(!state.categorySectionHidden && state.categoryCards.length === 2, `Real category section renders at ${width}px`, JSON.stringify(state.categoryNames));
-      check(state.categoryCards.every(card => card.tag === 'BUTTON' && card.height >= 44 && inside(card, width)), `Category destinations are semantic usable controls at ${width}px`, JSON.stringify(state.categoryCards));
+      check(state.categoryCards.every(card => card.tag === 'A' && card.href === '#shop' && card.height >= 44 && inside(card, width)), `Category destinations are semantic navigation links at ${width}px`, JSON.stringify(state.categoryCards));
       check(JSON.stringify(state.categoryNames) === JSON.stringify(['Tees','Hoodies']), `Homepage category names come from Firebase at ${width}px`, JSON.stringify(state.categoryNames));
       check(state.categoryImageLoading.length === 2 && state.categoryImageLoading.every(value => value === 'lazy'), `Category imagery is lazy-loaded at ${width}px`, JSON.stringify(state.categoryImageLoading));
 
@@ -215,7 +215,7 @@ function durationSeconds(value) {
           if (document.querySelector('#productDetailModal').classList.contains('active')) closeProductDetail();
           window.scrollTo(0, 0);
         });
-        await page.locator('#homeCategoryGrid button[data-home-category-id="1"]').click();
+        await page.locator('#homeCategoryGrid a[data-home-category-id="1"]').click();
         await page.waitForFunction(() => getComputedStyle(document.querySelector('#categoryPage')).display !== 'none');
         check((await page.locator('#categoryPageTitle').textContent()).trim() === 'Tees', 'Homepage category control opens existing category destination');
         await page.evaluate(() => closeCategoryPage());
