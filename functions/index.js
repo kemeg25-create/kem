@@ -540,7 +540,12 @@ exports.createOrder = onCall(async (request) => {
   const year = new Date().getUTCFullYear();
   const orderRequestTime = Date.now();
 
-  const transaction = await db.ref('/').transaction((root) => {
+  const orderRootRef = db.ref('/');
+  const initialOrderRoot = (await orderRootRef.once('value')).val();
+  const transaction = await orderRootRef.transaction((root) => {
+    if (root === null && initialOrderRoot !== null) {
+      root = JSON.parse(JSON.stringify(initialOrderRoot));
+    }
     root = root || {};
     abortReason = null;
     const quote = calculateQuote(root, request.data?.items, request.data?.couponCode);
