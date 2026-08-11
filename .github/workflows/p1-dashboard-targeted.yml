@@ -40,6 +40,7 @@ jobs:
           node --check validation/dashboard_targeted.cjs
       - name: Run targeted employee/dashboard browser validation
         env:
+          NODE_PATH: ${{ github.workspace }}/functions/node_modules:${{ github.workspace }}/node_modules
           FIREBASE_AUTH_EMULATOR_HOST: 127.0.0.1:9099
           FIREBASE_DATABASE_EMULATOR_HOST: 127.0.0.1:9000
           FIREBASE_STORAGE_EMULATOR_HOST: 127.0.0.1:9199
