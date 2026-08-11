@@ -97,7 +97,7 @@ jobs:
           GCLOUD_PROJECT: demo-kem-validation
         run: |
           export CHROME_PATH="$(node -e "console.log(require('playwright').chromium.executablePath())")"
-          node validation/smoke.cjs
+          timeout 180s node validation/smoke.cjs
       - name: Diagnose dashboard overflow on smoke failure
         if: failure()
         env:
