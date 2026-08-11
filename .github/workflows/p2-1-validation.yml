@@ -158,4 +158,4 @@ jobs:
           PY
           git diff --check
           git diff --exit-code 4d5b4fcc188577551feec0d61d4d11e185906c72 -- index.html functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
-# retrigger after validation-only import correction
+# retrigger after deterministic focus-harness correction
