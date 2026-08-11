@@ -1,0 +1,78 @@
+name: P1 baseline reconciliation apply
+on:
+  push:
+    branches:
+      - agent/p1-final-validation
+    paths:
+      - validation/apply_p1_baseline_reconciliation.py
+      - .github/workflows/p1-baseline-reconcile.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout validation harness
+        uses: actions/checkout@v4
+        with:
+          ref: agent/p1-final-validation
+          path: harness
+      - name: Checkout frozen P1 application
+        uses: actions/checkout@v4
+        with:
+          ref: agent/p1-remediation
+          fetch-depth: 0
+          path: app
+      - name: Verify source head
+        working-directory: app
+        run: |
+          test "$(git rev-parse HEAD)" = "a7848a7ba6f97afd6505a83bc2fb8447a23973f9"
+          git status --short
+      - name: Apply exactly four proven P1 fixes
+        working-directory: app
+        run: |
+          python3 ../harness/validation/apply_p1_baseline_reconciliation.py
+          test "$(git diff --name-only)" = $'functions/index.js\nindex.html'
+          git diff --check
+          node --check functions/index.js
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess, tempfile, os
+          h=Path('index.html').read_text()
+          for attrs, body in re.findall(r'<script([^>]*)>(.*?)</script>', h, re.S|re.I):
+              if 'application/ld+json' in attrs.lower() or not body.strip():
+                  continue
+              f=tempfile.NamedTemporaryFile('w', suffix='.js', delete=False)
+              f.write(body); f.close()
+              try: subprocess.run(['node','--check',f.name], check=True)
+              finally: os.unlink(f.name)
+          assert '.about-content, .about-content > * { min-width:0; }' in h
+          assert "onclick=\"filterByCategory(${JSON.stringify(name)})\"" not in h
+          assert "onclick=\"selectProductImage(${JSON.stringify(src)},this)\"" not in h
+          assert "onclick=\"selectProductVariant('size',${JSON.stringify(v)},this)\"" not in h
+          assert "onclick=\"selectProductVariant('color',${JSON.stringify(v)},this)\"" not in h
+          assert "#employeeModal.active,.form-modal.active,.auth-modal.active,.product-detail-modal.active" in h
+          print('Production HTML reconciliation anchors verified')
+          PY
+          python3 - <<'PY'
+          from pathlib import Path
+          f=Path('functions/index.js').read_text()
+          assert f.count("const orderRootRef = db.ref('/');") == 1
+          assert f.count('const initialOrderRoot = (await orderRootRef.once(\'value\')).val();') == 1
+          assert f.count('const transaction = await orderRootRef.transaction((root) => {') == 1
+          assert 'if (root === null && initialOrderRoot !== null)' in f
+          assert "paymentMethod !== 'cod'" in f
+          assert 'request.data?.price' not in f
+          assert 'product.stock = currentStock - item.quantity' in f
+          print('Authoritative transaction reconciliation anchors verified')
+          PY
+      - name: Commit reconciled production source
+        working-directory: app
+        run: |
+          git config user.name 'KEM validation agent'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html functions/index.js
+          git commit -m 'Reconcile validated P1 application fixes'
+          git push origin HEAD:agent/p1-remediation
+          echo "RECONCILED_COMMIT=$(git rev-parse HEAD)"
