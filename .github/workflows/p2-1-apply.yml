@@ -1,0 +1,77 @@
+name: P2.1 header navigation apply
+on:
+  push:
+    branches:
+      - agent/p1-final-validation
+    paths:
+      - validation/apply_p2_1_header.py
+      - .github/workflows/p2-1-apply.yml
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout validation harness
+        uses: actions/checkout@v4
+        with:
+          ref: agent/p1-final-validation
+          path: harness
+      - name: Checkout exact P2.0 baseline
+        uses: actions/checkout@v4
+        with:
+          ref: agent/p2-visual-ux
+          fetch-depth: 0
+          path: app
+      - name: Verify approved P2.0 baseline
+        working-directory: app
+        run: |
+          test "$(git rev-parse HEAD)" = "85d774e196bb647205f04ef1c67da9bbf862542c"
+          test -z "$(git status --porcelain)"
+          git diff --exit-code 85d774e196bb647205f04ef1c67da9bbf862542c -- index.html functions database.rules.json firebase.json
+      - name: Apply contained P2.1 header navigation change
+        working-directory: app
+        run: |
+          python3 ../harness/validation/apply_p2_1_header.py
+          test "$(git diff --name-only)" = "index.html"
+          test -z "$(git diff -- functions functions/index.js database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml)"
+          git diff --check
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess, tempfile, os
+          h=Path('index.html').read_text()
+          required=[
+            'P2.1 — HEADER / NAVIGATION',
+            '--color-ink: #0A0A0A;',
+            '--space-128: 128px;',
+            '--motion-standard: 200ms;',
+            '@media (prefers-reduced-motion: reduce)',
+            'id="mobileNavToggle"',
+            'id="primaryNav"',
+            'id="categoriesDropdown"',
+            'id="headerSearch"',
+            'id="mobileHeaderSearch"',
+            'id="authButton"',
+            'id="cartBadge"',
+            "document.addEventListener('keydown', event => {",
+          ]
+          for item in required: assert item in h,item
+          assert h.count("document.addEventListener('keydown', event => {")==1
+          body=re.search(r'body\s*\{(.*?)\}',h,re.S).group(1)
+          assert 'overflow-x: hidden' not in body
+          for attrs, script in re.findall(r'<script([^>]*)>(.*?)</script>',h,re.S|re.I):
+              if 'application/ld+json' in attrs.lower() or not script.strip(): continue
+              f=tempfile.NamedTemporaryFile('w',suffix='.js',delete=False); f.write(script); f.close()
+              try: subprocess.run(['node','--check',f.name],check=True)
+              finally: os.unlink(f.name)
+          print('P2.1 static source and JavaScript syntax verified')
+          PY
+      - name: Commit P2.1 production change
+        working-directory: app
+        run: |
+          git config user.name 'KEM P2 agent'
+          git config user.email 'actions@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Implement P2.1 header and navigation'
+          git push origin HEAD:agent/p2-visual-ux
+          echo "P2_1_COMMIT=$(git rev-parse HEAD)"
