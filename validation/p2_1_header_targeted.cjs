@@ -1,6 +1,6 @@
 const { chromium } = require('playwright');
-const { initializeApp, deleteApp } = require('../functions/node_modules/firebase-admin/app');
-const { getDatabase } = require('../functions/node_modules/firebase-admin/database');
+const { initializeApp, deleteApp } = require('firebase-admin/app');
+const { getDatabase } = require('firebase-admin/database');
 
 const BASE = 'http://127.0.0.1:5000';
 const widths = [360, 375, 390, 414, 768, 1024, 1440];
