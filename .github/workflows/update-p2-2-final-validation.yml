@@ -1,0 +1,50 @@
+name: Update P2.2 final validation
+on:
+  push:
+    branches:
+      - agent/p1-final-validation
+    paths:
+      - .github/workflows/update-p2-2-final-validation.yml
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Point validation at final squashed P2.2 source
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          old='04af0d5b04ab483ff3d3bb51f829fe4038fefebf'
+          new='6534f9558e94f91b849c366489246578a5ddc490'
+          w=Path('.github/workflows/p2-2-validation.yml')
+          s=w.read_text()
+          assert s.count(old) >= 4, f'expected old SHA references, found {s.count(old)}'
+          s=s.replace(old,new)
+          w.write_text(s)
+
+          p=Path('validation/p2_2_homepage_targeted.cjs')
+          s=p.read_text()
+          old_map="categoryCards: categoryCards.map(card => ({ tag:card.tagName, ...rect(card) })),"
+          new_map="categoryCards: categoryCards.map(card => ({ tag:card.tagName, href:card.getAttribute('href'), ...rect(card) })),"
+          old_check="check(state.categoryCards.every(card => card.tag === 'BUTTON' && card.height >= 44 && inside(card, width)), `Category destinations are semantic usable controls at ${width}px`, JSON.stringify(state.categoryCards));"
+          new_check="check(state.categoryCards.every(card => card.tag === 'A' && card.href === '#shop' && card.height >= 44 && inside(card, width)), `Category destinations are semantic navigation links at ${width}px`, JSON.stringify(state.categoryCards));"
+          old_click="await page.locator('#homeCategoryGrid button[data-home-category-id=\"1\"]').click();"
+          new_click="await page.locator('#homeCategoryGrid a[data-home-category-id=\"1\"]').click();"
+          for old_text,label in [(old_map,'category mapping'),(old_check,'category semantic assertion'),(old_click,'category click selector')]:
+              assert s.count(old_text)==1, f'{label} anchor count {s.count(old_text)}'
+          s=s.replace(old_map,new_map,1).replace(old_check,new_check,1).replace(old_click,new_click,1)
+          p.write_text(s)
+          print('Updated P2.2 validation for final SHA and semantic category links')
+          PY
+          node --check validation/p2_2_homepage_targeted.cjs
+          git diff --check
+          git diff -- .github/workflows/p2-2-validation.yml validation/p2_2_homepage_targeted.cjs
+      - name: Commit validation-only update
+        run: |
+          git config user.name "kemeg25-create"
+          git config user.email "kem.eg25@gmail.com"
+          git add .github/workflows/p2-2-validation.yml validation/p2_2_homepage_targeted.cjs
+          git commit -m "Validate final P2.2 homepage source"
+          git push
