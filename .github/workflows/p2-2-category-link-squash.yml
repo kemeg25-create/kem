@@ -1,0 +1,81 @@
+name: P2.2 category link squash
+on:
+  push:
+    branches:
+      - agent/p1-final-validation
+    paths:
+      - .github/workflows/p2-2-category-link-squash.yml
+permissions:
+  contents: write
+jobs:
+  squash:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify current production and patch only homepage category semantics
+        run: |
+          git fetch origin agent/p2-visual-ux
+          test "$(git rev-parse origin/agent/p2-visual-ux)" = "04af0d5b04ab483ff3d3bb51f829fe4038fefebf"
+          git checkout -B agent/p2-visual-ux origin/agent/p2-visual-ux
+          test -z "$(git status --porcelain)"
+          git show 4d5b4fcc188577551feec0d61d4d11e185906c72:index.html > /tmp/p21-index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          h=p.read_text()
+          old_css='''            text-align: left;\n            font: inherit;\n        }'''
+          new_css='''            text-align: left;\n            font: inherit;\n            display: block;\n            text-decoration: none;\n        }'''
+          old_markup='''                return `<button type="button" class="home-category-card" data-home-category-id="${Number(category.id)}">\n                    <span class="home-category-media">${media}</span>\n                    <span class="home-category-copy">\n                        <span class="home-category-name">${escapeHTML(category.name)}</span>\n                        ${description ? `<span class="home-category-desc">${escapeHTML(description)}</span>` : ''}\n                    </span>\n                </button>`;'''
+          new_markup='''                return `<a class="home-category-card" href="#shop" data-home-category-id="${Number(category.id)}">\n                    <span class="home-category-media">${media}</span>\n                    <span class="home-category-copy">\n                        <span class="home-category-name">${escapeHTML(category.name)}</span>\n                        ${description ? `<span class="home-category-desc">${escapeHTML(description)}</span>` : ''}\n                    </span>\n                </a>`;'''
+          old_listener='''            grid.querySelectorAll('button[data-home-category-id]').forEach(button => {\n                button.addEventListener('click', () => showCategoryPage(Number(button.dataset.homeCategoryId)));\n            });'''
+          new_listener='''            grid.querySelectorAll('a[data-home-category-id]').forEach(link => {\n                link.addEventListener('click', event => {\n                    event.preventDefault();\n                    showCategoryPage(Number(link.dataset.homeCategoryId));\n                });\n            });'''
+          for old,label in [(old_css,'category css'),(old_markup,'category markup'),(old_listener,'category listener')]:
+              assert h.count(old)==1, f'{label} anchor count {h.count(old)}'
+          h=h.replace(old_css,new_css,1).replace(old_markup,new_markup,1).replace(old_listener,new_listener,1)
+          assert 'button[data-home-category-id]' not in h
+          assert '<a class="home-category-card" href="#shop" data-home-category-id=' in h
+          p.write_text(h)
+          print('Converted homepage category navigation from button to semantic link')
+          PY
+          test "$(git diff --name-only)" = "index.html"
+          git diff --check
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess, tempfile, os
+          h=Path('index.html').read_text(); before=Path('/tmp/p21-index.html').read_text()
+          current_prefix=h[h.index('<body>'):h.index('        <!-- Hero Section -->')]
+          before_prefix=before[before.index('<body>'):before.index('        <!-- Hero Section -->')]
+          assert current_prefix == before_prefix, 'P2.1 body/header prefix changed'
+          assert h.count('P2.2 — HOMEPAGE')==1
+          assert h.count('<a class="home-category-card" href="#shop" data-home-category-id=')==1
+          assert "grid.querySelectorAll('a[data-home-category-id]')" in h
+          assert 'event.preventDefault();' in h
+          assert h.count("window.addEventListener('popstate'")==1
+          assert h.count("document.addEventListener('keydown', event => {")==1
+          for attrs,body in re.findall(r'<script([^>]*)>(.*?)</script>',h,re.S|re.I):
+              if 'application/ld+json' in attrs.lower() or not body.strip(): continue
+              f=tempfile.NamedTemporaryFile('w',suffix='.js',delete=False);f.write(body);f.close()
+              try: subprocess.run(['node','--check',f.name],check=True)
+              finally: os.unlink(f.name)
+          print('P2.2 category-link compatibility source verified')
+          PY
+          git diff --exit-code 04af0d5b04ab483ff3d3bb51f829fe4038fefebf -- functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
+      - name: Rewrite as one contained P2.2 commit
+        run: |
+          git config user.name "kemeg25-create"
+          git config user.email "kem.eg25@gmail.com"
+          git add index.html
+          git reset --soft 4d5b4fcc188577551feec0d61d4d11e185906c72
+          test "$(git diff --cached --name-only)" = "index.html"
+          git diff --cached --check
+          git commit -m "Implement P2.2 homepage redesign"
+          NEW_SHA="$(git rev-parse HEAD)"
+          test "$(git rev-list --count 4d5b4fcc188577551feec0d61d4d11e185906c72..HEAD)" = "1"
+          git push --force-with-lease=refs/heads/agent/p2-visual-ux:04af0d5b04ab483ff3d3bb51f829fe4038fefebf origin HEAD:agent/p2-visual-ux
+          echo "P2_2_FINAL_SHA=$NEW_SHA"
