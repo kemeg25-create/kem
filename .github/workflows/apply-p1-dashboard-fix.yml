@@ -19,23 +19,23 @@ jobs:
           test "$(git rev-parse HEAD)" = "317cf982aa1ae0cb4f39550521b8899dba5f88d3"
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p=Path('index.html')
           h=p.read_text()
-          anchor="""            .section-title { font-size:2.5rem; }
-
-            .hero-title {
-          """
-          replacement="""            .section-title { font-size:2.5rem; }
-            .dashboard { padding-left:1rem; padding-right:1rem; }
-            .dashboard-header { flex-direction:column; align-items:stretch; gap:1rem; }
-            .dashboard-header h1 { min-width:0; overflow-wrap:anywhere; }
-            .dashboard-header-actions { width:100%; min-width:0; flex-wrap:wrap; justify-content:flex-start; }
-
-            .hero-title {
-          """
-          if h.count(anchor) != 1:
-              raise SystemExit(f'expected one mobile dashboard anchor, found {h.count(anchor)}')
-          h=h.replace(anchor,replacement,1)
+          pattern=r'(?m)^(\s*)\.section-title \{ font-size:2\.5rem; \}\n\n\1\.hero-title \{'
+          matches=list(re.finditer(pattern,h))
+          if len(matches) != 1:
+              raise SystemExit(f'expected one mobile dashboard anchor, found {len(matches)}')
+          indent=matches[0].group(1)
+          replacement=(
+              f'{indent}.section-title {{ font-size:2.5rem; }}\n'
+              f'{indent}.dashboard {{ padding-left:1rem; padding-right:1rem; }}\n'
+              f'{indent}.dashboard-header {{ flex-direction:column; align-items:stretch; gap:1rem; }}\n'
+              f'{indent}.dashboard-header h1 {{ min-width:0; overflow-wrap:anywhere; }}\n'
+              f'{indent}.dashboard-header-actions {{ width:100%; min-width:0; flex-wrap:wrap; justify-content:flex-start; }}\n\n'
+              f'{indent}.hero-title {{'
+          )
+          h=re.sub(pattern,replacement,h,count=1)
           p.write_text(h)
           PY
           git diff --check
