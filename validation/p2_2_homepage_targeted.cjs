@@ -173,15 +173,20 @@ function durationSeconds(value) {
       check(failedLocal.length === 0, `No failed local application requests at ${width}px`, JSON.stringify(failedLocal));
 
       if (width === 390) {
+        const ctaContract = await page.locator('#home .cta-button').evaluate(el => ({ tag:el.tagName, href:el.getAttribute('href') }));
         await page.click('#home .cta-button');
-        await page.waitForTimeout(80);
-        check((await page.locator('#shop').count()) === 1 && (await page.evaluate(() => location.hash)) === '#shop', 'Hero CTA uses existing Shop destination');
+        await page.waitForTimeout(120);
+        const shopDestination = await page.locator('#shop').evaluate(el => {
+          const r=el.getBoundingClientRect();
+          return { top:r.top, bottom:r.bottom, viewport:innerHeight, scrollY:window.scrollY };
+        });
+        check(ctaContract.tag === 'A' && ctaContract.href === '#shop' && shopDestination.scrollY > 0 && shopDestination.top < shopDestination.viewport, 'Hero CTA uses existing Shop destination', JSON.stringify({ctaContract,shopDestination}));
 
         await page.evaluate(() => window.scrollTo(0, 0));
         await page.click('#homeFeaturedProducts a[data-home-product-id="1"]');
         await page.waitForSelector('#productDetailModal.active');
         check(/\?product=1(?:&|$)/.test(await page.evaluate(() => location.search)), 'Featured product opens existing ?product=<id> deep link');
-        check((await page.locator('#productGalleryThumbs .product-gallery-thumb').count()) >= 2, 'Featured product opens existing gallery');
+        check((await page.locator('#detailGallery button.product-gallery-thumb[data-image-index]').count()) >= 2, 'Featured product opens existing gallery');
 
         await page.goBack();
         await page.waitForFunction(() => !document.querySelector('#productDetailModal').classList.contains('active'));
