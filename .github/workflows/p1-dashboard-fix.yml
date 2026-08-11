@@ -1,0 +1,97 @@
+name: Apply P1 dashboard responsive patch
+on:
+  push:
+    branches:
+      - agent/p1-integration-validation
+    paths:
+      - .github/workflows/p1-dashboard-fix.yml
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/p1-integration-validation
+          fetch-depth: 0
+      - name: Patch validated mobile dashboard candidate and coverage
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('validation/prepare_emulator.py')
+          s = p.read_text()
+          old = """            .stat-item { padding:1rem; }
+
+            .hero-title {
+"""
+          new = """            .stat-item { padding:1rem; }
+            .dashboard { padding-left:1rem; padding-right:1rem; }
+            .dashboard-header { flex-direction:column; align-items:stretch; gap:1rem; }
+            .dashboard-header h1 { min-width:0; overflow-wrap:anywhere; }
+            .dashboard-header-actions { width:100%; min-width:0; flex-wrap:wrap; justify-content:flex-start; }
+
+            .hero-title {
+"""
+          if s.count(old) != 1:
+              raise SystemExit('prepare_emulator dashboard responsive anchor not unique')
+          p.write_text(s.replace(old, new, 1))
+
+          p = Path('validation/smoke.cjs')
+          s = p.read_text()
+          widths_old = '[360, 390, 768, 1024, 1440]'
+          widths_new = '[360, 375, 390, 414, 768, 1024, 1440]'
+          if s.count(widths_old) != 2:
+              raise SystemExit(f'expected 2 viewport lists, found {s.count(widths_old)}')
+          s = s.replace(widths_old, widths_new)
+
+          old_loop = """  for (const width of [360, 375, 390, 414, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.waitForTimeout(120);
+    const m = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth, active: document.querySelector('#employeeDashboard')?.classList.contains('active') }));
+    assert(m.active && m.sw <= m.iw + 2, `Dashboard has no page-level horizontal overflow at ${width}px`, `${m.sw}/${m.iw}`);
+  }
+"""
+          new_loop = """  for (const width of [360, 375, 390, 414, 768, 1024, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.waitForTimeout(120);
+    const m = await page.evaluate(() => {
+      const actions = document.querySelector('.dashboard-header-actions')?.getBoundingClientRect();
+      const logout = document.querySelector('.dashboard-header-actions .logout-btn')?.getBoundingClientRect();
+      return {
+        sw: document.documentElement.scrollWidth,
+        iw: innerWidth,
+        active: document.querySelector('#employeeDashboard')?.classList.contains('active'),
+        actionsLeft: actions?.left ?? 0,
+        actionsRight: actions?.right ?? 0,
+        logoutLeft: logout?.left ?? 0,
+        logoutRight: logout?.right ?? 0,
+      };
+    });
+    assert(m.active && m.sw <= m.iw + 2, `Dashboard has no page-level horizontal overflow at ${width}px`, `${m.sw}/${m.iw}`);
+    assert(m.actionsLeft >= -1 && m.actionsRight <= m.iw + 1, `Dashboard header actions stay inside viewport at ${width}px`, `${m.actionsLeft}/${m.actionsRight}/${m.iw}`);
+    assert(m.logoutLeft >= -1 && m.logoutRight <= m.iw + 1, `Dashboard logout remains usable at ${width}px`, `${m.logoutLeft}/${m.logoutRight}/${m.iw}`);
+  }
+
+  await page.setViewportSize({ width: 360, height: 900 });
+  for (const name of ['Overview', 'Products', 'Orders', 'Promotions', 'Employees', 'Security', 'Settings']) {
+    const button = page.getByRole('button', { name, exact: true });
+    if (!(await button.count()) || !(await button.isVisible())) continue;
+    await button.click();
+    await page.waitForTimeout(80);
+    const m = await page.evaluate(() => ({ sw: document.documentElement.scrollWidth, iw: innerWidth }));
+    assert(m.sw <= m.iw + 2, `Dashboard ${name} section has no page-level overflow at 360px`, `${m.sw}/${m.iw}`);
+  }
+"""
+          if s.count(old_loop) != 1:
+              raise SystemExit('dashboard viewport loop anchor not unique')
+          p.write_text(s.replace(old_loop, new_loop, 1))
+          PY
+          git diff --check
+          git diff -- validation/prepare_emulator.py validation/smoke.cjs
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add validation/prepare_emulator.py validation/smoke.cjs
+          git commit -m "Validate responsive employee dashboard"
+          git push origin HEAD:agent/p1-integration-validation
