@@ -1,0 +1,35 @@
+name: Fix P2.2 CTA wait
+on:
+  push:
+    branches:
+      - agent/p1-final-validation
+    paths:
+      - .github/workflows/fix-p2-2-cta-wait.yml
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wait for existing smooth-scroll destination
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('validation/p2_2_homepage_targeted.cjs')
+          s=p.read_text()
+          old="""        await page.click('#home .cta-button');\n        await page.waitForTimeout(120);\n        const shopDestination = await page.locator('#shop').evaluate(el => {\n          const r=el.getBoundingClientRect();\n          return { top:r.top, bottom:r.bottom, viewport:innerHeight, scrollY:window.scrollY };\n        });"""
+          new="""        await page.click('#home .cta-button');\n        await page.waitForFunction(() => {\n          const target=document.querySelector('#shop');\n          return target && target.getBoundingClientRect().top < innerHeight;\n        }, null, { timeout: 3000 });\n        const shopDestination = await page.locator('#shop').evaluate(el => {\n          const r=el.getBoundingClientRect();\n          return { top:r.top, bottom:r.bottom, viewport:innerHeight, scrollY:window.scrollY };\n        });"""
+          assert s.count(old)==1, 'CTA wait anchor mismatch'
+          p.write_text(s.replace(old,new,1))
+          print('Corrected validation-only CTA wait for frozen smooth-scroll behavior')
+          PY
+          node --check validation/p2_2_homepage_targeted.cjs
+          git diff --check
+      - name: Commit validation-only correction
+        run: |
+          git config user.name "kemeg25-create"
+          git config user.email "kem.eg25@gmail.com"
+          git add validation/p2_2_homepage_targeted.cjs
+          git commit -m "Wait for P2.2 CTA scroll destination"
+          git push
