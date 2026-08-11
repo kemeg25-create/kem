@@ -1,0 +1,40 @@
+name: Fix P2.2 targeted assumptions
+on:
+  push:
+    branches:
+      - agent/p1-final-validation
+    paths:
+      - .github/workflows/fix-p2-2-targeted-assumptions.yml
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Correct CTA and gallery assertions only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('validation/p2_2_homepage_targeted.cjs')
+          s=p.read_text()
+          old_cta="""        await page.click('#home .cta-button');\n        await page.waitForTimeout(80);\n        check((await page.locator('#shop').count()) === 1 && (await page.evaluate(() => location.hash)) === '#shop', 'Hero CTA uses existing Shop destination');"""
+          new_cta="""        const ctaContract = await page.locator('#home .cta-button').evaluate(el => ({ tag:el.tagName, href:el.getAttribute('href') }));\n        await page.click('#home .cta-button');\n        await page.waitForTimeout(120);\n        const shopDestination = await page.locator('#shop').evaluate(el => {\n          const r=el.getBoundingClientRect();\n          return { top:r.top, bottom:r.bottom, viewport:innerHeight, scrollY:window.scrollY };\n        });\n        check(ctaContract.tag === 'A' && ctaContract.href === '#shop' && shopDestination.scrollY > 0 && shopDestination.top < shopDestination.viewport, 'Hero CTA uses existing Shop destination', JSON.stringify({ctaContract,shopDestination}));"""
+          old_gallery="""        check((await page.locator('#productGalleryThumbs .product-gallery-thumb').count()) >= 2, 'Featured product opens existing gallery');"""
+          new_gallery="""        check((await page.locator('#detailGallery button.product-gallery-thumb[data-image-index]').count()) >= 2, 'Featured product opens existing gallery');"""
+          assert s.count(old_cta)==1, 'CTA assertion anchor mismatch'
+          assert s.count(old_gallery)==1, 'gallery assertion anchor mismatch'
+          s=s.replace(old_cta,new_cta,1).replace(old_gallery,new_gallery,1)
+          p.write_text(s)
+          print('Corrected validation-only CTA scroll contract and existing gallery selector')
+          PY
+          node --check validation/p2_2_homepage_targeted.cjs
+          git diff --check
+          git diff -- validation/p2_2_homepage_targeted.cjs
+      - name: Commit validation-only correction
+        run: |
+          git config user.name "kemeg25-create"
+          git config user.email "kem.eg25@gmail.com"
+          git add validation/p2_2_homepage_targeted.cjs
+          git commit -m "Correct P2.2 targeted navigation assertions"
+          git push
