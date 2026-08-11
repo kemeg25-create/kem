@@ -32,7 +32,8 @@ if 'demo-kem-validation-default-rtdb' not in h:
 h = h.replace(needle, replacement, 1)
 
 # Candidate P1 regression fix under validation: keep the existing two-column stats layout,
-# but allow grid tracks/items to shrink within narrow phone viewports.
+# but allow grid tracks/items to shrink within narrow phone viewports. Also keep the
+# employee dashboard header/actions inside the mobile content box without changing desktop.
 responsive_anchor = """            .section-title { font-size:2.5rem; }
 
             .hero-title {
@@ -41,6 +42,10 @@ responsive_fix = """            .section-title { font-size:2.5rem; }
             .about-content, .about-content > * { min-width:0; }
             .stats { grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; }
             .stat-item { padding:1rem; }
+            .dashboard { padding-left:1rem; padding-right:1rem; }
+            .dashboard-header { flex-direction:column; align-items:stretch; gap:1rem; }
+            .dashboard-header h1 { min-width:0; overflow-wrap:anywhere; }
+            .dashboard-header-actions { width:100%; min-width:0; flex-wrap:wrap; justify-content:flex-start; }
 
             .hero-title {
 """
