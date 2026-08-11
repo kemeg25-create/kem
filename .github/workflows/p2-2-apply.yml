@@ -1,0 +1,64 @@
+name: P2.2 homepage apply
+on:
+  push:
+    branches:
+      - agent/p1-final-validation
+    paths:
+      - .github/workflows/p2-2-apply.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verify exact approved P2.1 production baseline
+        run: |
+          cp validation/apply_p2_2_homepage.py /tmp/apply_p2_2_homepage.py
+          git fetch origin agent/p2-visual-ux
+          test "$(git rev-parse origin/agent/p2-visual-ux)" = "4d5b4fcc188577551feec0d61d4d11e185906c72"
+          git checkout -B agent/p2-visual-ux origin/agent/p2-visual-ux
+          test -z "$(git status --porcelain)"
+          git show 4d5b4fcc188577551feec0d61d4d11e185906c72:index.html > /tmp/p21-index.html
+      - name: Apply homepage-only patch
+        run: |
+          python3 /tmp/apply_p2_2_homepage.py
+          test "$(git diff --name-only)" = "index.html"
+          git diff --check
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess, tempfile, os
+          h=Path('index.html').read_text()
+          before=Path('/tmp/p21-index.html').read_text()
+          # P2.1 body/header markup before the homepage hero must remain byte-for-byte unchanged.
+          current_prefix=h[h.index('<body>'):h.index('        <!-- Hero Section -->')]
+          before_prefix=before[before.index('<body>'):before.index('        <!-- Hero Section -->')]
+          assert current_prefix == before_prefix
+          assert h.count('P2.2 — HOMEPAGE') == 1
+          assert h.count('id="homeFeaturedProducts"') == 1
+          assert h.count('id="homeCategoryGrid"') == 1
+          assert h.count("window.addEventListener('popstate'") == 1
+          assert h.count("document.addEventListener('keydown', event => {") == 1
+          for attrs,body in re.findall(r'<script([^>]*)>(.*?)</script>',h,re.S|re.I):
+              if 'application/ld+json' in attrs.lower() or not body.strip(): continue
+              f=tempfile.NamedTemporaryFile('w',suffix='.js',delete=False); f.write(body); f.close()
+              try: subprocess.run(['node','--check',f.name],check=True)
+              finally: os.unlink(f.name)
+          print('P2.2 source and inline JavaScript syntax verified')
+          PY
+          git diff --exit-code 4d5b4fcc188577551feec0d61d4d11e185906c72 -- functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
+      - name: Commit contained production change
+        run: |
+          git config user.name "kemeg25-create"
+          git config user.email "kem.eg25@gmail.com"
+          git add index.html
+          git commit -m "Implement P2.2 homepage redesign"
+          git push origin HEAD:agent/p2-visual-ux
+          echo "P2_2_PRODUCTION_SHA=$(git rev-parse HEAD)"
