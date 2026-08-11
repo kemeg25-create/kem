@@ -1,0 +1,36 @@
+name: Retrigger P2.2 final validation once
+on:
+  push:
+    branches:
+      - agent/p1-final-validation
+    paths:
+      - .github/workflows/retrigger-p2-2-final-once.yml
+permissions:
+  contents: write
+jobs:
+  retrigger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/p1-final-validation
+      - name: Make final P2.2 workflow self-trigger once
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('.github/workflows/p2-2-final-validation.yml')
+          s=p.read_text()
+          marker='      - validation/p2_2_homepage_targeted.cjs\n'
+          addition='      - .github/workflows/p2-2-final-validation.yml\n'
+          if addition not in s:
+              if marker not in s:
+                  raise SystemExit('expected final validation trigger marker missing')
+              s=s.replace(marker, marker+addition, 1)
+              p.write_text(s)
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/p2-2-final-validation.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'Retrigger final P2.2 validation'
+          git push origin HEAD:agent/p1-final-validation
