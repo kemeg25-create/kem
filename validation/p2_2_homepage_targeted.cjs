@@ -175,7 +175,10 @@ function durationSeconds(value) {
       if (width === 390) {
         const ctaContract = await page.locator('#home .cta-button').evaluate(el => ({ tag:el.tagName, href:el.getAttribute('href') }));
         await page.click('#home .cta-button');
-        await page.waitForTimeout(120);
+        await page.waitForFunction(() => {
+          const target=document.querySelector('#shop');
+          return target && target.getBoundingClientRect().top < innerHeight;
+        }, null, { timeout: 3000 });
         const shopDestination = await page.locator('#shop').evaluate(el => {
           const r=el.getBoundingClientRect();
           return { top:r.top, bottom:r.bottom, viewport:innerHeight, scrollY:window.scrollY };
