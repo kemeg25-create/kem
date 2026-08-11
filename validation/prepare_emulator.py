@@ -88,6 +88,15 @@ product_new = """            const gallery=document.getElementById('detailGaller
 if product_old not in h:
     raise SystemExit('Product gallery/variant rendering anchor not found')
 h = h.replace(product_old, product_new, 1)
+
+# Candidate P1 accessibility regression fix: employee login uses the generic .modal class,
+# so include that specific active dialog in the existing Escape/focus-trap handler.
+dialog_old = "const dialog = document.querySelector('.form-modal.active,.auth-modal.active,.product-detail-modal.active');"
+dialog_new = "const dialog = document.querySelector('#employeeModal.active,.form-modal.active,.auth-modal.active,.product-detail-modal.active');"
+if dialog_old not in h:
+    raise SystemExit('Dialog keyboard selector anchor not found')
+h = h.replace(dialog_old, dialog_new, 1)
+
 index_path.write_text(h)
 
 config = json.loads(firebase_path.read_text())
