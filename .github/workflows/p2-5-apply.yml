@@ -1,0 +1,73 @@
+name: P2.5 apply cart checkout redesign
+
+on:
+  push:
+    branches: [agent/p1-final-validation]
+    paths:
+      - '.github/workflows/p2-5-apply.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout validation helpers
+        uses: actions/checkout@v4
+        with:
+          ref: agent/p1-final-validation
+          path: validation-source
+
+      - name: Checkout exact production branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/p2-visual-ux
+          path: app
+          fetch-depth: 0
+
+      - name: Verify frozen P2.4 baseline
+        working-directory: app
+        run: |
+          test "$(git rev-parse HEAD)" = "eedbf94257b21436f27c281f18c813583333a8b8"
+          test "$(git status --porcelain)" = ""
+
+      - name: Apply contained P2.5 source change
+        run: python validation-source/validation/apply_p2_5_cart_checkout.py app/index.html
+
+      - name: Verify source and scope
+        working-directory: app
+        run: |
+          git diff --check
+          test "$(git diff --name-only)" = "index.html"
+          grep -q 'P2.5 — CART / CHECKOUT' index.html
+          grep -q "cloudFunctions.httpsCallable('quoteOrder')" index.html
+          grep -q "cloudFunctions.httpsCallable('createOrder')" index.html
+          grep -q "paymentMethod: 'cod'" index.html
+          ! git diff --name-only | grep -E '^(functions/|database.rules.json$|firebase.json$|storage.rules$|success.html$|cancel.html$|assets/)'
+          python - <<'PY'
+          from pathlib import Path
+          import re, subprocess, tempfile
+          text=Path('index.html').read_text()
+          assert 'body { overflow-x: hidden;' not in text
+          assert text.count("window.addEventListener('popstate'") == 1
+          scripts=re.findall(r'<script(?![^>]*type=["\']application/ld\+json["\'])[^>]*>(.*?)</script>', text, re.S|re.I)
+          for i, script in enumerate(scripts):
+              if not script.strip(): continue
+              p=Path(tempfile.gettempdir())/f'p2_5_inline_{i}.js'
+              p.write_text(script)
+              subprocess.run(['node','--check',str(p)],check=True)
+          print('P2.5 inline scripts syntax-valid')
+          PY
+
+      - name: Commit exactly one P2.5 production commit
+        working-directory: app
+        run: |
+          git config user.name "kemeg25-create"
+          git config user.email "kem.eg25@gmail.com"
+          git add index.html
+          git commit -m "Implement P2.5 cart and checkout redesign"
+          test "$(git rev-parse HEAD^)" = "eedbf94257b21436f27c281f18c813583333a8b8"
+          git push origin HEAD:agent/p2-visual-ux
+          echo "P2_5_SHA=$(git rev-parse HEAD)"
