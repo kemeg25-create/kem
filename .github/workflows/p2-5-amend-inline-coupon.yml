@@ -1,0 +1,74 @@
+name: P2.5 amend inline coupon feedback
+on:
+  push:
+    branches: [agent/p1-final-validation]
+    paths: [.github/workflows/p2-5-amend-inline-coupon.yml]
+permissions:
+  contents: write
+jobs:
+  amend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/p2-visual-ux
+          fetch-depth: 0
+      - name: Verify exact P2.5 candidate and direct P2.4 parent
+        run: |
+          test "$(git rev-parse HEAD)" = "dff3f719de127f84ad2faead79a78ac21cee75b6"
+          test "$(git rev-parse HEAD^)" = "eedbf94257b21436f27c281f18c813583333a8b8"
+          test "$(git diff --name-only HEAD^ HEAD)" = "index.html"
+      - name: Add only inline invalid-coupon presentation
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('index.html')
+          s=p.read_text()
+          old="""            } catch (error) {
+                        console.error('Coupon validation failed:', error);
+                        alert(error?.message || 'Invalid coupon code.');
+                    }"""
+          new="""            } catch (error) {
+                        console.error('Coupon validation failed:', error);
+                        const feedback = document.getElementById('couponFeedback');
+                        if (feedback) {
+                            feedback.className = 'coupon-feedback kem-state kem-state-error';
+                            feedback.setAttribute('role', 'alert');
+                            feedback.textContent = error?.message || 'Invalid coupon code.';
+                        }
+                        alert(error?.message || 'Invalid coupon code.');
+                    }"""
+          assert s.count(old)==1, f'coupon catch anchor count={s.count(old)}'
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+          git diff --check
+          test "$(git diff --name-only)" = "index.html"
+          grep -q "feedback.className = 'coupon-feedback kem-state kem-state-error'" index.html
+          grep -q "cloudFunctions.httpsCallable('quoteOrder')" index.html
+          grep -q "cloudFunctions.httpsCallable('createOrder')" index.html
+          grep -q "paymentMethod: 'cod'" index.html
+          python3 - <<'PY'
+          from pathlib import Path
+          import re,subprocess,tempfile,os
+          h=Path('index.html').read_text()
+          for attrs,body in re.findall(r'<script([^>]*)>(.*?)</script>',h,re.S|re.I):
+              if 'application/ld+json' in attrs.lower() or not body.strip(): continue
+              f=tempfile.NamedTemporaryFile('w',suffix='.js',delete=False); f.write(body); f.close()
+              try: subprocess.run(['node','--check',f.name],check=True)
+              finally: os.unlink(f.name)
+          assert 'P2.5 — CART / CHECKOUT' in h
+          assert 'body { overflow-x: hidden;' not in h
+          print('Inline coupon presentation amended; existing server error and alert retained')
+          PY
+      - name: Amend the single P2.5 production commit
+        run: |
+          git config user.name "kemeg25-create"
+          git config user.email "kem.eg25@gmail.com"
+          git add index.html
+          git commit --amend --no-edit
+          test "$(git rev-parse HEAD^)" = "eedbf94257b21436f27c281f18c813583333a8b8"
+          test "$(git log -1 --format=%s)" = "Implement P2.5 cart and checkout redesign"
+          NEW_SHA="$(git rev-parse HEAD)"
+          git push --force-with-lease=refs/heads/agent/p2-visual-ux:dff3f719de127f84ad2faead79a78ac21cee75b6 origin HEAD:agent/p2-visual-ux
+          echo "P2_5_AMENDED_SHA=$NEW_SHA"
