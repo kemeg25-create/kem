@@ -29,7 +29,7 @@ jobs:
       - name: Load exact P2.5 source and verify contained scope
         run: |
           git fetch origin agent/p2-visual-ux
-          P25=dff3f719de127f84ad2faead79a78ac21cee75b6
+          P25=eadc7b2016f3bd1fb5b531cc547cac00686453d3
           P24=eedbf94257b21436f27c281f18c813583333a8b8
           test "$(git rev-parse origin/agent/p2-visual-ux)" = "$P25"
           test "$(git rev-parse $P25^)" = "$P24"
@@ -55,6 +55,7 @@ jobs:
           h=Path('index.html').read_text()
           for item in [
             'P2.5 — CART / CHECKOUT','commerce-kicker','couponFeedback','paymentCod','order-success-state','function showOrderSuccessState(result)',
+            "feedback.className = 'coupon-feedback kem-state kem-state-error'",
             "cloudFunctions.httpsCallable('quoteOrder')","cloudFunctions.httpsCallable('createOrder')","paymentMethod: 'cod'",
             'function updateCartQuantity(index, change)','function removeFromCart(index)','function removeCouponCode()','function selectSavedAddress(addressId)',
             'P2.4 — PRODUCT DETAIL','P2.3 — COLLECTION / SHOP','P2.2 — HOMEPAGE','P2.1 — HEADER / NAVIGATION',
@@ -65,7 +66,7 @@ jobs:
           assert 'overflow-x: hidden' not in body
           assert h.count("window.addEventListener('popstate'")==1
           assert h.count("document.addEventListener('keydown', event => {")==1
-          print('Exact P2.5 source, frozen P2 anchors and commerce authority hooks verified')
+          print('Exact amended P2.5 source, frozen P2 anchors and commerce authority hooks verified')
           PY
 
       - name: Install emulator and Chromium tooling
@@ -89,7 +90,7 @@ jobs:
           node --check validation/p1_reconciliation_targeted.cjs
           node --check validation/dashboard_targeted.cjs
           node --check validation/smoke.cjs
-          git diff -U0 dff3f719de127f84ad2faead79a78ac21cee75b6 -- index.html functions/index.js > /tmp/runtime-app.diff || true
+          git diff -U0 eadc7b2016f3bd1fb5b531cc547cac00686453d3 -- index.html functions/index.js > /tmp/runtime-app.diff || true
           if grep -E 'P2\.5|cartPage|checkoutPage|cart-item|couponInput|couponFeedback|checkoutStatus|checkoutSubtotal|checkoutTotal|paymentCod|place-order-btn|showOrderSuccessState|renderCart|updateCartQuantity|removeFromCart|applyCouponCode|removeCouponCode|renderCheckoutSummary|placeOrder|createOrder|quoteOrder|P2\.4|product-detail|addToCartFromDetail|P2\.3|kem-shop|P2\.2|home-hero|P2\.1|nav-shell|employeeModal\.active|orderRootRef|initialOrderRoot' /tmp/runtime-app.diff; then
             cat /tmp/runtime-app.diff
             echo 'Runtime preparation altered committed application behavior'
@@ -153,7 +154,7 @@ jobs:
       - name: Restore exact production source and run final static security guards
         if: always()
         run: |
-          P25=dff3f719de127f84ad2faead79a78ac21cee75b6
+          P25=eadc7b2016f3bd1fb5b531cc547cac00686453d3
           P24=eedbf94257b21436f27c281f18c813583333a8b8
           git checkout -- validation/smoke.cjs validation/seed.cjs
           git checkout $P25 -- index.html functions database.rules.json firebase.json payment-success.html payment-failed.html robots.txt sitemap.xml apple-touch-icon.png favicon-64.png logo-240.png
@@ -184,6 +185,7 @@ jobs:
           assert 'exports.getCustomerOrders' in b and 'exports.uploadProductImage' in b and "order?.customerUid === uid" in b
           for text in [
             'P2.5 — CART / CHECKOUT','commerce-kicker','couponFeedback','paymentCod','order-success-state','function showOrderSuccessState(result)',
+            "feedback.className = 'coupon-feedback kem-state kem-state-error'",
             "cloudFunctions.httpsCallable('quoteOrder')","cloudFunctions.httpsCallable('createOrder')","paymentMethod: 'cod'",
             'function updateCartQuantity(index, change)','function removeFromCart(index)','function removeCouponCode()','function selectSavedAddress(addressId)',
             'P2.4 — PRODUCT DETAIL','class="product-detail-topbar"','function addToCartFromDetail()',
@@ -194,7 +196,7 @@ jobs:
           assert 'overflow-x: hidden' not in body_css
           assert '🔥 Product discount applied!' not in h
           assert '📍 Your Saved Addresses' not in h
-          print('Exact P2.5 source and frozen P0/P1/P2 security/static guards verified')
+          print('Exact amended P2.5 source and frozen P0/P1/P2 security/static guards verified')
           PY
           git diff --check
           test "$(git rev-parse $P25^)" = "$P24"
