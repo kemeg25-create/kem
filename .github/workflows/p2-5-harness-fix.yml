@@ -1,0 +1,62 @@
+name: P2.5 harness correction
+on:
+  push:
+    branches: [agent/p1-final-validation]
+    paths: [.github/workflows/p2-5-harness-fix.yml]
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/p1-final-validation
+      - name: Correct keyboard and interaction sequencing only
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('validation/p2_5_cart_checkout_targeted.cjs')
+          s=p.read_text()
+          old="""      await page.locator('#paymentCod').focus();
+                const paymentFocus = await tabFocusStyle(page, page.locator('#paymentCod'));
+                check(paymentFocus.active && paymentFocus.width === '3px' && paymentFocus.style === 'solid', `Payment choice retains 3px visible keyboard focus at ${width}px`, JSON.stringify(paymentFocus));
+                await page.locator('.place-order-btn').focus();
+                const orderFocus = await tabFocusStyle(page, page.locator('.place-order-btn'));
+                check(orderFocus.active && orderFocus.width === '3px' && orderFocus.style === 'solid', `Place Order retains 3px visible keyboard focus at ${width}px`, JSON.stringify(orderFocus));"""
+          new="""      await page.locator('#checkoutNotes').focus();
+                await page.keyboard.press('Tab');
+                const paymentFocus = await tabFocusStyle(page, page.locator('#paymentCod'));
+                check(paymentFocus.active && paymentFocus.width === '3px' && paymentFocus.style === 'solid', `Payment choice retains 3px visible keyboard focus at ${width}px`, JSON.stringify(paymentFocus));
+                let reachedOrder = false;
+                for (let i = 0; i < 8; i++) {
+                  await page.keyboard.press('Tab');
+                  if (await page.locator('.place-order-btn').evaluate(el => document.activeElement === el)) { reachedOrder = true; break; }
+                }
+                const orderFocus = await tabFocusStyle(page, page.locator('.place-order-btn'));
+                check(reachedOrder && orderFocus.active && orderFocus.width === '3px' && orderFocus.style === 'solid', `Place Order retains 3px visible keyboard focus at ${width}px`, JSON.stringify(orderFocus));"""
+          assert old in s, 'focus harness block not found'
+          s=s.replace(old,new,1)
+          old2="""    // Authentication requirement.
+              await addAlpha(page);"""
+          new2="""    // Authentication requirement. Earlier width matrix already proves Shop → Cart; use the existing deep link here to avoid stale section visibility state.
+              await page.goto(`${BASE}/?product=1`, { waitUntil:'domcontentloaded' });
+              await page.waitForSelector('#productDetailModal.active');
+              await page.locator('#detailSizes .variant-option').filter({hasText:'M'}).click();
+              await page.locator('#detailColors .variant-option').filter({hasText:'Black'}).click();
+              await page.getByRole('button',{name:'Add to Cart',exact:true}).click();
+              await page.evaluate(()=>{closeProductDetail();openCart();});
+              await page.waitForSelector('#cartPage.active');"""
+          assert old2 in s, 'authentication setup block not found'
+          s=s.replace(old2,new2,1)
+          p.write_text(s)
+          PY
+          node --check validation/p2_5_cart_checkout_targeted.cjs
+          git diff --check
+      - name: Commit validation-only harness correction
+        run: |
+          git config user.name "kemeg25-create"
+          git config user.email "kem.eg25@gmail.com"
+          git add validation/p2_5_cart_checkout_targeted.cjs
+          git commit -m "Correct P2.5 validation harness sequencing"
+          git push origin HEAD:agent/p1-final-validation
