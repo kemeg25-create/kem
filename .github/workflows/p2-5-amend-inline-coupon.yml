@@ -22,24 +22,26 @@ jobs:
         run: |
           python3 - <<'PY'
           from pathlib import Path
+          import re
           p=Path('index.html')
           s=p.read_text()
-          old="""            } catch (error) {
-                        console.error('Coupon validation failed:', error);
-                        alert(error?.message || 'Invalid coupon code.');
-                    }"""
-          new="""            } catch (error) {
-                        console.error('Coupon validation failed:', error);
-                        const feedback = document.getElementById('couponFeedback');
-                        if (feedback) {
-                            feedback.className = 'coupon-feedback kem-state kem-state-error';
-                            feedback.setAttribute('role', 'alert');
-                            feedback.textContent = error?.message || 'Invalid coupon code.';
-                        }
-                        alert(error?.message || 'Invalid coupon code.');
-                    }"""
-          assert s.count(old)==1, f'coupon catch anchor count={s.count(old)}'
-          s=s.replace(old,new,1)
+          pattern=re.compile(r"(?P<indent>[ \t]*)} catch \(error\) \{\n(?P=indent)[ \t]+console\.error\('Coupon validation failed:', error\);\n(?P=indent)[ \t]+alert\(error\?\.message \|\| 'Invalid coupon code\.'\);\n(?P=indent)}")
+          matches=list(pattern.finditer(s))
+          assert len(matches)==1, f'coupon catch anchor count={len(matches)}'
+          m=matches[0]
+          indent=m.group('indent')
+          inner=indent+'    '
+          new=(indent+"} catch (error) {\n"+
+               inner+"console.error('Coupon validation failed:', error);\n"+
+               inner+"const feedback = document.getElementById('couponFeedback');\n"+
+               inner+"if (feedback) {\n"+
+               inner+"    feedback.className = 'coupon-feedback kem-state kem-state-error';\n"+
+               inner+"    feedback.setAttribute('role', 'alert');\n"+
+               inner+"    feedback.textContent = error?.message || 'Invalid coupon code.';\n"+
+               inner+"}\n"+
+               inner+"alert(error?.message || 'Invalid coupon code.');\n"+
+               indent+"}")
+          s=s[:m.start()]+new+s[m.end():]
           p.write_text(s)
           PY
           git diff --check
