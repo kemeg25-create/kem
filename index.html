@@ -5312,6 +5312,41 @@
             .order-success-state * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
         }
 
+
+        /* P2.6 — ACCOUNT / AUTHENTICATION */
+        #authModal.auth-modal,#accountModal.auth-modal{align-items:center;justify-content:center;padding:max(var(--space-24),env(safe-area-inset-top)) var(--page-gutter) max(var(--space-24),env(safe-area-inset-bottom));background:rgba(10,10,10,.76)}
+        #authModal .auth-modal-content,#accountModal .auth-modal-content{width:min(100%,560px);max-height:min(880px,calc(100vh - 48px));overflow-y:auto;padding:var(--space-48);border:1px solid var(--color-neutral-200);border-radius:var(--radius-sm);background:var(--color-white);color:var(--color-ink);box-shadow:var(--shadow-panel)}
+        #accountModal .auth-modal-content{width:min(100%,960px)}
+        .account-kicker,.auth-kicker{margin:0 0 var(--space-8);color:var(--color-neutral-600);font:600 var(--type-metadata)/1.35 var(--font-ui);letter-spacing:.08em;text-transform:uppercase}
+        #authModalTitle,#accountModalTitle{margin:0;color:var(--color-ink);font-family:var(--font-display);font-size:var(--type-section-title);font-weight:400;line-height:.95;letter-spacing:.02em}
+        .auth-intro,.account-intro{max-width:52ch;margin:var(--space-12) 0 var(--space-24);color:var(--color-neutral-600);font:400 var(--type-ui)/1.55 var(--font-ui)}
+        #authModal .close-modal,#accountModal .close-modal{top:var(--space-16);right:var(--space-16)}
+        #authModal .auth-tabs{display:grid;grid-template-columns:1fr 1fr;margin:0 0 var(--space-32);border-bottom:1px solid var(--color-neutral-200)}
+        #authModal .auth-tab{min-height:48px;padding:var(--space-12) var(--space-16);border:0;border-bottom:2px solid transparent;border-radius:0;background:transparent;color:var(--color-neutral-600);font:600 var(--type-ui)/1.2 var(--font-ui)}
+        #authModal .auth-tab.active{border-bottom-color:var(--color-ink);color:var(--color-ink)}
+        #authModal .auth-form{display:none}#authModal .auth-form.active{display:block}
+        #authModal .auth-input-group{margin-bottom:20px}#authModal .auth-input-group label{display:block;margin-bottom:var(--space-8);color:var(--color-ink);font:600 var(--type-ui)/1.35 var(--font-ui)}
+        #authModal .auth-input-group input,#authModal .auth-reset-panel input{width:100%;min-width:0;min-height:48px;padding:var(--space-12) var(--space-16);border:1px solid var(--color-neutral-200);border-radius:var(--radius-xs);background:var(--color-white);color:var(--color-ink);font:400 var(--type-ui)/1.4 var(--font-ui)}
+        #authModal .auth-submit,#authModal .auth-reset-submit{width:100%;min-height:52px;padding:var(--space-16) var(--space-24);border:1px solid var(--color-ink);border-radius:var(--radius-xs);background:var(--color-ink);color:var(--color-white);font:600 var(--type-ui)/1.2 var(--font-ui);letter-spacing:.04em;text-transform:uppercase}
+        #authModal .auth-submit:hover,#authModal .auth-reset-submit:hover{border-color:var(--color-kem-pink);background:var(--color-kem-pink)}
+        .auth-secondary-action,.auth-switch button,.auth-reset-back{min-height:44px;padding:var(--space-8) 0;border:0;background:transparent;color:var(--color-ink);font:600 var(--type-ui)/1.25 var(--font-ui);text-decoration:underline;text-underline-offset:3px}
+        .auth-forgot{display:flex;justify-content:flex-end;margin:calc(-1 * var(--space-8)) 0 var(--space-16)}.auth-switch{margin-top:var(--space-16);color:var(--color-neutral-600);text-align:center;font:400 var(--type-ui)/1.45 var(--font-ui)}.auth-switch button{margin-left:var(--space-4)}
+        #authModal .auth-divider{display:flex;align-items:center;gap:var(--space-12);margin:var(--space-24) 0;color:var(--color-neutral-400);font:600 var(--type-metadata)/1 var(--font-ui);letter-spacing:.08em}#authModal .auth-divider:before,#authModal .auth-divider:after{content:'';flex:1;height:1px;background:var(--color-neutral-200)}
+        #authFeedback{margin:0 0 20px}#authFeedback:empty{display:none}#authFeedback[class]{padding:var(--space-12) var(--space-16)}#authFeedback.auth-feedback-error{color:var(--color-error);background:var(--color-error-surface);border:1px solid #F3B8B3}#authFeedback.auth-feedback-success{color:var(--color-success);background:var(--color-success-surface);border:1px solid #B8DEC9}#authFeedback.auth-feedback-info{color:var(--color-info);background:var(--color-info-surface);border:1px solid #BCD0FA}
+        .auth-reset-panel[hidden]{display:none}.auth-reset-panel h3{margin:0 0 var(--space-8);font-family:var(--font-display);font-size:var(--type-product-title);font-weight:400}.auth-reset-panel p{margin:0 0 20px;color:var(--color-neutral-600);font:400 var(--type-ui)/1.55 var(--font-ui)}.auth-reset-actions{display:grid;gap:var(--space-12)}
+        .account-layout{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:var(--space-48);align-items:start}.account-section{min-width:0;padding-top:var(--space-24);border-top:1px solid var(--color-neutral-200)}.account-section+.account-section{margin-top:var(--space-32)}.account-section-header{display:flex;align-items:center;justify-content:space-between;gap:var(--space-16);margin-bottom:var(--space-16)}.account-section h3{margin:0;font-family:var(--font-display);font-size:var(--type-product-title);font-weight:400;line-height:1}
+        .account-refresh,.account-close,.account-logout{min-height:44px;padding:var(--space-12) var(--space-16);border-radius:var(--radius-xs);font:600 var(--type-ui)/1.2 var(--font-ui)}.account-refresh,.account-close{border:1px solid var(--color-neutral-200);background:var(--color-white);color:var(--color-ink)}.account-logout{border:1px solid var(--color-ink);background:var(--color-ink);color:var(--color-white)}.account-logout:hover{border-color:var(--color-kem-pink);background:var(--color-kem-pink)}
+        #accountProfile{padding:0;background:transparent}.account-profile-name{margin:0 0 var(--space-8);font:600 var(--type-product-title)/1.15 var(--font-ui);overflow-wrap:anywhere}.account-profile-meta{margin:var(--space-4) 0 0;color:var(--color-neutral-600);font:400 var(--type-ui)/1.5 var(--font-ui);overflow-wrap:anywhere}
+        #accountAddresses,#accountOrders{display:grid;gap:var(--space-12)}.account-address{padding:var(--space-16);border:1px solid var(--color-neutral-200);background:var(--color-neutral-50)}.account-address-head{display:flex;align-items:center;justify-content:space-between;gap:var(--space-12);margin-bottom:var(--space-8)}.account-address-label{font:600 var(--type-ui)/1.3 var(--font-ui)}.account-address-default{color:var(--color-success);font:600 var(--type-metadata)/1.2 var(--font-ui);letter-spacing:.05em}.account-address-copy{color:var(--color-neutral-600);font:400 var(--type-ui)/1.5 var(--font-ui);overflow-wrap:anywhere}
+        .account-order{padding:var(--space-16) 0;border-bottom:1px solid var(--color-neutral-200)}.account-order:first-child{padding-top:0}.account-order-head{display:flex;align-items:flex-start;justify-content:space-between;gap:var(--space-16)}.account-order-id{color:var(--color-ink);font:600 var(--type-ui)/1.35 var(--font-ui);overflow-wrap:anywhere}.account-order-date{margin-top:var(--space-4);color:var(--color-neutral-600);font:400 var(--type-metadata)/1.4 var(--font-ui);overflow-wrap:anywhere}.account-order-meta{display:flex;flex-wrap:wrap;justify-content:space-between;gap:var(--space-12);margin-top:var(--space-12);color:var(--color-neutral-600);font:400 var(--type-ui)/1.4 var(--font-ui)}.account-order-total{color:var(--color-ink);font-weight:600}
+        .account-empty,.account-loading,.account-error{padding:var(--space-24);border:1px solid var(--color-neutral-200);background:var(--color-neutral-50)}.account-error{border-color:#F3B8B3;background:var(--color-error-surface);color:var(--color-error)}.account-actions{display:flex;justify-content:flex-end;gap:var(--space-12);margin-top:var(--space-32);padding-top:var(--space-24);border-top:1px solid var(--color-neutral-200)}
+        #authModal :is(button,input):focus-visible,#accountModal :is(button,input):focus-visible{outline:3px solid var(--color-kem-pink);outline-offset:3px}
+        #accountModal .close-modal:focus{outline:3px solid var(--color-kem-pink);outline-offset:3px}
+        @media(max-width:767px){#authModal.auth-modal,#accountModal.auth-modal{align-items:flex-start;padding:var(--space-16) var(--page-gutter)}#authModal .auth-modal-content,#accountModal .auth-modal-content{max-height:calc(100vh - 32px);padding:var(--space-32) var(--space-24)}.account-layout{grid-template-columns:1fr;gap:var(--space-32)}.account-actions{flex-direction:column-reverse}.account-actions button{width:100%}}
+        @media(max-width:768px){#accountModal .account-layout{grid-template-columns:1fr;gap:var(--space-32)}#accountModal .account-actions{flex-direction:column-reverse}#accountModal .account-actions button{width:100%}}
+        @media(max-width:420px){#authModal .auth-modal-content,#accountModal .auth-modal-content{padding:var(--space-32) var(--space-16) var(--space-24)}.account-section-header{align-items:flex-start}.account-order-head{display:grid;grid-template-columns:1fr}.account-order-head .status-badge{justify-self:start}}
+        @media(prefers-reduced-motion:reduce){#authModal *,#accountModal *{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;scroll-behavior:auto!important}}
+
     </style>
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -6707,96 +6742,13 @@
     </div>
 
     <!-- Customer Account Modal -->
-    <div class="auth-modal" id="accountModal" role="dialog" aria-modal="true" aria-labelledby="accountModalTitle" aria-hidden="true">
-        <div class="auth-modal-content" style="max-width:760px;">
-            <button type="button" class="close-modal" onclick="closeAccountModal()" aria-label="Close account">×</button>
-            <h2 id="accountModalTitle" style="font-family:'Bebas Neue',sans-serif;font-size:2.5rem;margin-bottom:1rem;letter-spacing:.08em;">My Account</h2>
-            <div id="accountProfile" style="padding:1rem;background:#f7f7f7;margin-bottom:1.5rem;"></div>
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:1rem;margin-bottom:1rem;flex-wrap:wrap;">
-                <h3 style="margin:0;">Order History</h3>
-                <button type="button" class="btn-edit" onclick="loadCustomerOrders()">Refresh</button>
-            </div>
-            <div id="accountOrders" aria-live="polite"><p style="color:#666;">Loading orders…</p></div>
-            <div class="form-actions" style="margin-top:1.5rem;">
-                <button type="button" class="btn-delete" onclick="logoutUser()">Log Out</button>
-                <button type="button" class="btn-cancel" onclick="closeAccountModal()">Close</button>
-            </div>
-        </div>
-    </div>
+    <div class="auth-modal" id="accountModal" role="dialog" aria-modal="true" aria-labelledby="accountModalTitle" aria-describedby="accountModalIntro" aria-hidden="true"><div class="auth-modal-content"><button type="button" class="close-modal" onclick="closeAccountModal()" aria-label="Close account">×</button><header><p class="account-kicker">KEM / Account</p><h2 id="accountModalTitle">My Account</h2><p class="account-intro" id="accountModalIntro">Your KEM profile, saved addresses and order history.</p></header><div class="account-layout"><div><section class="account-section" aria-labelledby="accountProfileTitle"><div class="account-section-header"><h3 id="accountProfileTitle">Profile</h3></div><div id="accountProfile"></div></section><section class="account-section" aria-labelledby="accountAddressesTitle"><div class="account-section-header"><h3 id="accountAddressesTitle">Saved Addresses</h3></div><div id="accountAddresses" aria-live="polite"></div></section></div><section class="account-section" aria-labelledby="accountOrdersTitle"><div class="account-section-header"><h3 id="accountOrdersTitle">Orders</h3><button type="button" class="account-refresh" onclick="loadCustomerOrders()">Refresh</button></div><div id="accountOrders" aria-live="polite" aria-busy="true"><div class="account-loading">Loading orders…</div></div></section></div><div class="account-actions"><button type="button" class="account-close" onclick="closeAccountModal()">Close</button><button type="button" class="account-logout" onclick="logoutUser()">Log Out</button></div></div></div>
 
     <!-- Auth Modal -->
-    <div class="auth-modal" id="authModal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle" aria-hidden="true">
-        <div class="auth-modal-content">
-            <button class="close-modal" onclick="closeAuthModal()">×</button>
-            <h2 id="authModalTitle" style="font-family: 'Bebas Neue', sans-serif; font-size: 2.5rem; margin-bottom: 1.5rem; letter-spacing: 0.1em; text-align: center;">Welcome to KEM</h2>
-            
-            <div class="auth-tabs">
-                <button class="auth-tab active" onclick="switchAuthTab('login')">Login</button>
-                <button class="auth-tab" onclick="switchAuthTab('signup')">Sign Up</button>
-            </div>
-
-            <!-- Login Form -->
-            <form class="auth-form active" id="loginForm" onsubmit="handleLogin(event)">
-                <div class="auth-input-group">
-                    <label>Email</label>
-                    <input type="email" id="loginIdentifier" placeholder="your@email.com" autocomplete="email" required>
-                </div>
-                <div class="auth-input-group">
-                    <label>Password</label>
-                    <input type="password" id="loginPassword" placeholder="Enter your password" required>
-                </div>
-                <div style="text-align: right; margin-bottom: 1rem;">
-                    <button type="button" onclick="handleForgotPassword()" style="border:0;background:none;color:var(--accent);font-size:.9rem;text-decoration:underline;">Forgot Password?</button>
-                </div>
-                <button type="submit" class="auth-submit">Login</button>
-
-                <div class="auth-divider">OR</div>
-
-                <div id="googleSignInButtonLogin">
-                    <div style="text-align: center; padding: 1rem; background: #f5f5f5; border: 1px solid #ddd; color: #666;">
-                        Loading Google Sign-In...
-                    </div>
-                </div>
-
-                <div class="auth-switch">
-                    Don't have an account? <a onclick="switchAuthTab('signup')">Sign up</a>
-                </div>
-            </form>
-
-            <!-- Signup Form -->
-            <form class="auth-form" id="signupForm" onsubmit="handleSignup(event)">
-                <div class="auth-input-group">
-                    <label>Full Name</label>
-                    <input type="text" id="signupName" placeholder="Your name" required>
-                </div>
-                <div class="auth-input-group">
-                    <label>Email</label>
-                    <input type="email" id="signupEmail" placeholder="your@email.com" required>
-                </div>
-                <div class="auth-input-group">
-                    <label>Phone Number</label>
-                    <input type="tel" id="signupPhone" placeholder="+20123456789">
-                </div>
-                <div class="auth-input-group">
-                    <label>Password</label>
-                    <input type="password" id="signupPassword" placeholder="Create a password" required>
-                </div>
-                <button type="submit" class="auth-submit">Create Account</button>
-
-                <div class="auth-divider">OR</div>
-
-                <div id="googleSignInButtonSignup">
-                    <div style="text-align: center; padding: 1rem; background: #f5f5f5; border: 1px solid #ddd; color: #666;">
-                        Loading Google Sign-In...
-                    </div>
-                </div>
-
-                <div class="auth-switch">
-                    Already have an account? <a onclick="switchAuthTab('login')">Login</a>
-                </div>
-            </form>
-        </div>
-    </div>
+    <div class="auth-modal" id="authModal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle" aria-describedby="authModalIntro" aria-hidden="true"><div class="auth-modal-content"><button type="button" class="close-modal" onclick="closeAuthModal()" aria-label="Close account sign in">×</button><header><p class="auth-kicker">KEM / Account</p><h2 id="authModalTitle">Account</h2><p class="auth-intro" id="authModalIntro">Sign in to view your KEM account, saved addresses and orders.</p></header><div id="authFeedback" role="status" aria-live="polite"></div><div class="auth-tabs" role="tablist" aria-label="Account access"><button type="button" class="auth-tab active" id="loginTab" role="tab" aria-selected="true" aria-controls="loginForm" onclick="switchAuthTab('login')">Login</button><button type="button" class="auth-tab" id="signupTab" role="tab" aria-selected="false" aria-controls="signupForm" onclick="switchAuthTab('signup')">Sign Up</button></div>
+    <form class="auth-form active" id="loginForm" role="tabpanel" aria-labelledby="loginTab" onsubmit="handleLogin(event)"><div class="auth-input-group"><label for="loginIdentifier">Email</label><input type="email" id="loginIdentifier" placeholder="your@email.com" autocomplete="email" required></div><div class="auth-input-group"><label for="loginPassword">Password</label><input type="password" id="loginPassword" placeholder="Enter your password" autocomplete="current-password" required></div><div class="auth-forgot"><button type="button" class="auth-secondary-action" onclick="handleForgotPassword()">Forgot Password?</button></div><button type="submit" class="auth-submit">Login</button><div class="auth-divider" aria-hidden="true">OR</div><div id="googleSignInButtonLogin"><div style="text-align:center;padding:1rem;background:#f5f5f5;border:1px solid #ddd;color:#666;">Loading Google Sign-In...</div></div><div class="auth-switch">Don't have an account?<button type="button" onclick="switchAuthTab('signup')">Sign Up</button></div></form>
+    <form class="auth-form" id="signupForm" role="tabpanel" aria-labelledby="signupTab" onsubmit="handleSignup(event)"><div class="auth-input-group"><label for="signupName">Full Name *</label><input type="text" id="signupName" placeholder="Your name" autocomplete="name" required></div><div class="auth-input-group"><label for="signupEmail">Email *</label><input type="email" id="signupEmail" placeholder="your@email.com" autocomplete="email" required></div><div class="auth-input-group"><label for="signupPhone">Phone Number</label><input type="tel" id="signupPhone" placeholder="+20123456789" autocomplete="tel"></div><div class="auth-input-group"><label for="signupPassword">Password *</label><input type="password" id="signupPassword" placeholder="Create a password" autocomplete="new-password" minlength="6" required></div><button type="submit" class="auth-submit">Create Account</button><div class="auth-divider" aria-hidden="true">OR</div><div id="googleSignInButtonSignup"><div style="text-align:center;padding:1rem;background:#f5f5f5;border:1px solid #ddd;color:#666;">Loading Google Sign-In...</div></div><div class="auth-switch">Already have an account?<button type="button" onclick="switchAuthTab('login')">Login</button></div></form>
+    <section class="auth-reset-panel" id="resetPasswordPanel" aria-labelledby="resetPasswordTitle" hidden><h3 id="resetPasswordTitle">Reset Password</h3><p>Enter the email address for your KEM account. The existing password-reset service will send the reset email.</p><form id="resetPasswordForm" onsubmit="handlePasswordResetSubmit(event)"><div class="auth-input-group"><label for="resetEmail">Email</label><input type="email" id="resetEmail" autocomplete="email" required></div><div class="auth-reset-actions"><button type="submit" class="auth-reset-submit">Send Reset Email</button><button type="button" class="auth-reset-back" onclick="switchAuthTab('login')">Return to Login</button></div></form></section></div></div>
 
     <!-- Google Sign-In Modal -->
     <!-- Removed - Now using real Google OAuth -->
@@ -6815,47 +6767,14 @@
         }
         
         // Auth Modal Functions (Global)
-        window.openAuthModal = function() {
-            const modal = document.getElementById('authModal');
-            if (modal) {
-                modal.classList.add('active');
-                document.body.style.overflow = 'hidden';
-                
-                // Try to initialize Google Sign-In
-                if (window.googleLibraryLoaded && typeof window.initializeGoogleSignIn === 'function') {
-                    setTimeout(() => {
-                        window.initializeGoogleSignIn();
-                    }, 100);
-                }
-            }
-        }
-        
-        window.closeAuthModal = function() {
-            const modal = document.getElementById('authModal');
-            if (modal) {
-                modal.classList.remove('active');
-                document.body.style.overflow = 'auto';
-            }
-        }
-        
-        window.switchAuthTab = function(tab) {
-            const loginForm = document.getElementById('loginForm');
-            const signupForm = document.getElementById('signupForm');
-            const tabs = document.querySelectorAll('.auth-tab');
-            
-            tabs.forEach(t => t.classList.remove('active'));
-            
-            if (tab === 'login') {
-                loginForm?.classList.add('active');
-                signupForm?.classList.remove('active');
-                tabs[0]?.classList.add('active');
-            } else {
-                signupForm?.classList.add('active');
-                loginForm?.classList.remove('active');
-                tabs[1]?.classList.add('active');
-            }
-        }
-        
+        let authDialogReturnFocus=null,accountDialogReturnFocus=null,customerDialogScrollY=0,customerDialogScrollDepth=0;
+        function lockCustomerDialogScroll(){if(customerDialogScrollDepth++>0)return;customerDialogScrollY=window.scrollY;const b=document.body;b.style.position='fixed';b.style.top=`-${customerDialogScrollY}px`;b.style.width='100%'}
+        function unlockCustomerDialogScroll(){if(customerDialogScrollDepth===0)return;if(--customerDialogScrollDepth>0)return;const b=document.body;b.style.position='';b.style.top='';b.style.width='';window.scrollTo(0,customerDialogScrollY);customerDialogScrollY=0}
+        function setAuthFeedback(message='',state='info'){const f=document.getElementById('authFeedback');if(!f)return;f.textContent=message;f.className=message?`auth-feedback-${state}`:'';f.setAttribute('role',state==='error'?'alert':'status')}
+        window.openAuthModal=function(){const m=document.getElementById('authModal');if(!m)return;authDialogReturnFocus=document.activeElement&&!m.contains(document.activeElement)?document.activeElement:authDialogReturnFocus;m.classList.add('active');m.setAttribute('aria-hidden','false');lockCustomerDialogScroll();switchAuthTab('login');document.getElementById('loginIdentifier')?.focus();if(window.googleLibraryLoaded&&typeof window.initializeGoogleSignIn==='function')setTimeout(()=>window.initializeGoogleSignIn(),100)}
+        window.closeAuthModal=function(){const m=document.getElementById('authModal');if(!m)return;m.classList.remove('active');m.setAttribute('aria-hidden','true');unlockCustomerDialogScroll();setAuthFeedback('');const t=authDialogReturnFocus;authDialogReturnFocus=null;if(t?.isConnected)t.focus()}
+        window.switchAuthTab=function(tab){const login=tab==='login';document.getElementById('loginForm')?.classList.toggle('active',login);document.getElementById('signupForm')?.classList.toggle('active',!login);const r=document.getElementById('resetPasswordPanel');if(r)r.hidden=true;const l=document.getElementById('loginTab'),s=document.getElementById('signupTab');l?.classList.toggle('active',login);s?.classList.toggle('active',!login);l?.setAttribute('aria-selected',String(login));s?.setAttribute('aria-selected',String(!login));setAuthFeedback('')}
+        function showPasswordReset(){document.getElementById('loginForm')?.classList.remove('active');document.getElementById('signupForm')?.classList.remove('active');const r=document.getElementById('resetPasswordPanel');if(r)r.hidden=false;const e=document.getElementById('loginIdentifier')?.value.trim(),i=document.getElementById('resetEmail');if(i&&e)i.value=e;setAuthFeedback('');requestAnimationFrame(()=>i?.focus())}
         // Custom Cursor (simplified - no errors)
         let mouseX = 0, mouseY = 0;
         let cursorX = 0, cursorY = 0;
@@ -7638,6 +7557,7 @@
                 return;
             }
 
+            setAuthFeedback('Signing in…','info');
             try {
                 const credential = await auth.signInWithEmailAndPassword(email, password);
                 await credential.user.reload();
@@ -8908,6 +8828,8 @@
 
         // Cart Page Functions
         function openCart() {
+            const accountModal = document.getElementById('accountModal');
+            if (accountModal?.classList.contains('active')) closeAccountModal();
             document.getElementById('mainSite').style.display = 'none';
             document.getElementById('cartPage').classList.add('active');
             renderCart();
@@ -9702,27 +9624,6 @@
                 // Parse JWT token
 
 
-        function switchAuthTab(tab) {
-            // Update tab buttons
-            document.querySelectorAll('.auth-tab').forEach(btn => {
-                btn.classList.remove('active');
-                if (btn.textContent.toLowerCase() === tab) {
-                    btn.classList.add('active');
-                }
-            });
-
-            // Update forms
-            document.querySelectorAll('.auth-form').forEach(form => {
-                form.classList.remove('active');
-            });
-
-            if (tab === 'login') {
-                document.getElementById('loginForm').classList.add('active');
-            } else {
-                document.getElementById('signupForm').classList.add('active');
-            }
-        }
-
         async function handleLogin(event) {
             event.preventDefault();
             const email = document.getElementById('loginIdentifier').value.trim().toLowerCase();
@@ -9738,10 +9639,14 @@
                     name: credential.user.displayName || currentUser?.name || email.split('@')[0],
                     lastLogin: new Date().toISOString()
                 });
+                const accountReturnFocus=authDialogReturnFocus||document.getElementById('authButton');
                 closeAuthModal();
                 document.getElementById('loginForm').reset();
+                await openAccountModal();
+                accountDialogReturnFocus=accountReturnFocus;
             } catch (error) {
                 console.error('Login failed:', error);
+                setAuthFeedback('Unable to sign in with those credentials.','error');
                 alert('Unable to sign in with those credentials.');
             }
         }
@@ -9762,6 +9667,7 @@
                 return;
             }
 
+            setAuthFeedback('Creating your account…','info');
             try {
                 const credential = await auth.createUserWithEmailAndPassword(email, password);
                 await credential.user.updateProfile({ displayName: name });
@@ -9776,47 +9682,25 @@
                     lastLogin: new Date().toISOString()
                 });
                 await credential.user.sendEmailVerification();
+                const loginIdentifier=document.getElementById('loginIdentifier');
+                if(loginIdentifier)loginIdentifier.value=email;
                 closeAuthModal();
                 document.getElementById('signupForm').reset();
                 alert(`Welcome to KEM, ${name}! A verification email has been sent.`);
             } catch (error) {
                 console.error('Signup failed:', error);
+                setAuthFeedback('Unable to create your account. Please check the details and try again.','error');
                 alert(error?.message || 'Unable to create your account.');
             }
         }
 
-                async function handleForgotPassword() {
-            const email = prompt('Enter your email address to reset your password:');
-            if (!email) return;
-            try {
-                await auth.sendPasswordResetEmail(email.trim().toLowerCase());
-                alert('If the account exists, a password reset email has been sent.');
-            } catch (error) {
-                console.error('Password reset failed:', error);
-                alert('Unable to start password reset. Please check the address and try again.');
-            }
-        }
+                async function handleForgotPassword(){const m=document.getElementById('authModal');if(m?.classList.contains('active')){showPasswordReset();return}const email=document.getElementById('loginIdentifier')?.value.trim().toLowerCase();if(!email){openAuthModal();showPasswordReset();return}try{await auth.sendPasswordResetEmail(email);alert('If the account exists, a password reset email has been sent.')}catch(error){console.error('Password reset failed:',error);openAuthModal();showPasswordReset();setAuthFeedback('Unable to start password reset. Please check the address and try again.','error')}}
+        async function handlePasswordResetSubmit(event){event.preventDefault();const email=document.getElementById('resetEmail').value.trim().toLowerCase();if(!email)return;setAuthFeedback('Sending password reset email…','info');try{await auth.sendPasswordResetEmail(email);setAuthFeedback('If the account exists, a password reset email has been sent.','success')}catch(error){console.error('Password reset failed:',error);setAuthFeedback('Unable to start password reset. Please check the address and try again.','error')}}
 
-        async function openAccountModal() {
-            if (!auth?.currentUser || !currentUser) { openAuthModal(); return; }
-            const modal=document.getElementById('accountModal');
-            const profile=document.getElementById('accountProfile');
-            profile.innerHTML=`<strong>${escapeHTML(currentUser.name||'Customer')}</strong><div style="color:#666;margin-top:.25rem;">${escapeHTML(currentUser.email||'')}</div>${currentUser.phone?`<div style="color:#666;">${escapeHTML(currentUser.phone)}</div>`:''}`;
-            modal.classList.add('active'); modal.setAttribute('aria-hidden','false'); document.body.style.overflow='hidden';
-            modal.querySelector('.close-modal')?.focus();
-            await loadCustomerOrders();
-        }
-
-        function closeAccountModal() { const modal=document.getElementById('accountModal'); if(!modal)return; modal.classList.remove('active'); modal.setAttribute('aria-hidden','true'); document.body.style.overflow='auto'; }
-
-        async function loadCustomerOrders() {
-            const container=document.getElementById('accountOrders'); if(!container||!cloudFunctions)return; container.innerHTML='<p style="color:#666;">Loading orders…</p>';
-            try {
-                const getCustomerOrders=cloudFunctions.httpsCallable('getCustomerOrders'); const response=await getCustomerOrders(); const customerOrders=Array.isArray(response.data?.orders)?response.data.orders:[];
-                if(!customerOrders.length){container.innerHTML='<div style="padding:2rem;text-align:center;background:#f7f7f7;"><strong>No orders yet</strong><p style="color:#666;margin-top:.5rem;">Your KEM orders will appear here after checkout.</p></div>';return;}
-                container.innerHTML=customerOrders.map(order=>`<article style="border:1px solid var(--border);padding:1rem;margin-bottom:.75rem;"><div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;"><strong>${escapeHTML(order.id)}</strong><span class="status-badge status-${escapeHTML(order.status)}">${escapeHTML(order.status)}</span></div><div style="margin-top:.5rem;color:#666;">${escapeHTML(order.createdAt||order.date||'')}</div><div style="margin-top:.5rem;">${Number(order.itemCount||0)} item(s) · <strong>EGP ${Number(order.total||0).toFixed(2)}</strong></div></article>`).join('');
-            } catch(error) { console.error('Unable to load order history:',error); container.innerHTML='<p style="color:var(--accent);">Unable to load your orders. Please try again.</p>'; }
-        }
+        function renderAccountAddresses(){const c=document.getElementById('accountAddresses');if(!c)return;const u=currentUser?.uid?users[currentUser.uid]:null,a=Array.isArray(u?.savedAddresses)?u.savedAddresses:(Array.isArray(currentUser?.savedAddresses)?currentUser.savedAddresses:[]);if(!a.length){c.innerHTML='<div class="account-empty"><strong>No saved addresses</strong><p class="account-profile-meta">Saved addresses will appear here when available on your account.</p></div>';return}c.innerHTML=a.map(x=>`<article class="account-address"><div class="account-address-head"><span class="account-address-label">${escapeHTML(x.label||'Saved address')}</span>${x.isDefault?'<span class="account-address-default">Default</span>':''}</div><div class="account-address-copy">${escapeHTML(x.address||'')}${x.houseNumber?`<br>Building: ${escapeHTML(x.houseNumber)}`:''}${x.floor?`, Floor: ${escapeHTML(x.floor)}`:''}${x.city?`<br>${escapeHTML(x.city)}`:''}${x.postal?` · ${escapeHTML(x.postal)}`:''}</div></article>`).join('')}
+        async function openAccountModal(){if(document.getElementById('cartPage')?.classList.contains('active')||document.getElementById('checkoutPage')?.classList.contains('active'))return;if(!auth?.currentUser||!currentUser){openAuthModal();return}const m=document.getElementById('accountModal'),profile=document.getElementById('accountProfile');accountDialogReturnFocus=document.activeElement&&!m.contains(document.activeElement)?document.activeElement:accountDialogReturnFocus;profile.innerHTML=`<p class="account-profile-name">${escapeHTML(currentUser.name||'Customer')}</p><p class="account-profile-meta">${escapeHTML(currentUser.email||'')}</p>${currentUser.phone?`<p class="account-profile-meta">${escapeHTML(currentUser.phone)}</p>`:''}`;renderAccountAddresses();m.classList.add('active');m.setAttribute('aria-hidden','false');lockCustomerDialogScroll();m.querySelector('.close-modal')?.focus();await loadCustomerOrders()}
+        function closeAccountModal(){const m=document.getElementById('accountModal');if(!m)return;m.classList.remove('active');m.setAttribute('aria-hidden','true');unlockCustomerDialogScroll();const t=accountDialogReturnFocus;accountDialogReturnFocus=null;if(t?.isConnected)t.focus()}
+        async function loadCustomerOrders(){const c=document.getElementById('accountOrders');if(!c||!cloudFunctions)return;c.setAttribute('aria-busy','true');c.innerHTML='<div class="account-loading">Loading orders…</div>';try{const f=cloudFunctions.httpsCallable('getCustomerOrders'),r=await f(),o=Array.isArray(r.data?.orders)?r.data.orders:[];if(!o.length){c.innerHTML='<div class="account-empty"><strong>No orders yet</strong><p class="account-profile-meta">Your KEM orders will appear here after checkout.</p></div>';return}c.innerHTML=o.map(x=>`<article class="account-order"><div class="account-order-head"><div><div class="account-order-id">${escapeHTML(x.id)}</div><div class="account-order-date">${escapeHTML(x.createdAt||x.date||'')}</div></div><span class="status-badge status-${escapeHTML(x.status)}">${escapeHTML(x.status)}</span></div><div class="account-order-meta"><span>${Number(x.itemCount||0)} item(s)</span><span class="account-order-total">EGP ${Number(x.total||0).toFixed(2)}</span></div></article>`).join('')}catch(error){console.error('Unable to load order history:',error);c.innerHTML='<div class="account-error" role="alert">Unable to load your orders. Please try again.</div>'}finally{c.setAttribute('aria-busy','false')}}
 
                 function updateAuthButton() {
             const button = document.getElementById('authButton');
@@ -9831,7 +9715,7 @@
                 button.classList.remove('logged-in');
                 buttonText.textContent = 'Login';
                 button.onclick = openAuthModal;
-                button.setAttribute('aria-label', 'Log in or create account');
+                button.setAttribute('aria-label', 'Account');
             }
         }
 
@@ -9839,6 +9723,7 @@
             closeAccountModal();
             currentUser = null;
             currentEmployee = null;
+            updateAuthButton();
             if (auth) await auth.signOut();
             updateAuthButton();
         }
