@@ -197,12 +197,17 @@ async function tabFocusStyle(page, locator) {
       await page.locator('#checkoutName').focus();
       const fieldFocus = await tabFocusStyle(page, page.locator('#checkoutName'));
       check(fieldFocus.active && fieldFocus.width === '3px' && fieldFocus.style === 'solid', `Checkout field retains 3px visible keyboard focus at ${width}px`, JSON.stringify(fieldFocus));
-      await page.locator('#paymentCod').focus();
+      await page.locator('#checkoutNotes').focus();
+      await page.keyboard.press('Tab');
       const paymentFocus = await tabFocusStyle(page, page.locator('#paymentCod'));
       check(paymentFocus.active && paymentFocus.width === '3px' && paymentFocus.style === 'solid', `Payment choice retains 3px visible keyboard focus at ${width}px`, JSON.stringify(paymentFocus));
-      await page.locator('.place-order-btn').focus();
+      let reachedOrder = false;
+      for (let i = 0; i < 8; i++) {
+        await page.keyboard.press('Tab');
+        if (await page.locator('.place-order-btn').evaluate(el => document.activeElement === el)) { reachedOrder = true; break; }
+      }
       const orderFocus = await tabFocusStyle(page, page.locator('.place-order-btn'));
-      check(orderFocus.active && orderFocus.width === '3px' && orderFocus.style === 'solid', `Place Order retains 3px visible keyboard focus at ${width}px`, JSON.stringify(orderFocus));
+      check(reachedOrder && orderFocus.active && orderFocus.width === '3px' && orderFocus.style === 'solid', `Place Order retains 3px visible keyboard focus at ${width}px`, JSON.stringify(orderFocus));
       check(pageErrors.length === 0, `No uncaught browser errors in Cart/Checkout at ${width}px`, JSON.stringify(pageErrors));
       check(failedLocal.length === 0, `No failed local application requests in Cart/Checkout at ${width}px`, JSON.stringify(failedLocal));
       await context.close();
@@ -241,8 +246,14 @@ async function tabFocusStyle(page, locator) {
     await page.waitForFunction(() => cart.length === 0);
     check(await page.locator('.empty-cart').isVisible(), 'Remove uses existing cart mutation path and reaches empty state');
 
-    // Authentication requirement.
-    await addAlpha(page);
+    // Authentication requirement. Earlier width matrix already proves Shop → Cart; use the existing deep link here to avoid stale section visibility state.
+    await page.goto(`${BASE}/?product=1`, { waitUntil:'domcontentloaded' });
+    await page.waitForSelector('#productDetailModal.active');
+    await page.locator('#detailSizes .variant-option').filter({hasText:'M'}).click();
+    await page.locator('#detailColors .variant-option').filter({hasText:'Black'}).click();
+    await page.getByRole('button',{name:'Add to Cart',exact:true}).click();
+    await page.evaluate(()=>{closeProductDetail();openCart();});
+    await page.waitForSelector('#cartPage.active');
     const d0 = dialogs.length;
     await page.getByRole('button',{name:/checkout/i,exact:true}).click();
     await page.waitForTimeout(150);
