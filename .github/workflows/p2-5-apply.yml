@@ -36,6 +36,7 @@ jobs:
       - name: Apply contained P2.5 source change
         run: |
           sed -i 's/P2.3 — SHOP \/ COLLECTION/P2.3 — COLLECTION \/ SHOP/' validation-source/validation/apply_p2_5_cart_checkout.py
+          sed -i "s|'\/\* P2.1 — HEADER / NAVIGATION \*\/'|'P2.1 — HEADER / NAVIGATION'|" validation-source/validation/apply_p2_5_cart_checkout.py
           python validation-source/validation/apply_p2_5_cart_checkout.py app/index.html
 
       - name: Verify source and scope
