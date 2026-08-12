@@ -34,7 +34,9 @@ jobs:
           test "$(git status --porcelain)" = ""
 
       - name: Apply contained P2.5 source change
-        run: python validation-source/validation/apply_p2_5_cart_checkout.py app/index.html
+        run: |
+          sed -i 's/P2.3 — SHOP \/ COLLECTION/P2.3 — COLLECTION \/ SHOP/' validation-source/validation/apply_p2_5_cart_checkout.py
+          python validation-source/validation/apply_p2_5_cart_checkout.py app/index.html
 
       - name: Verify source and scope
         working-directory: app
