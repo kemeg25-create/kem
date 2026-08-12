@@ -334,7 +334,12 @@ async function tabFocusStyle(page, locator) {
     await page.evaluate(()=>backToCart());
     await page.getByRole('button',{name:'Continue Shopping'}).click();
     await page.goto(`${BASE}/?product=3`,{waitUntil:'domcontentloaded'}); await page.waitForSelector('#productDetailModal.active');
-    check(/Out of stock/i.test(await page.locator('#detailStock').textContent()) && await page.getByRole('button',{name:'Add to Cart',exact:true}).isDisabled(), 'Out-of-stock product remains unavailable through existing product path');
+    const outOfStockBefore = await page.evaluate(() => cart.length);
+      const outOfStockDialogs = dialogs.length;
+      check(/Out of stock/i.test(await page.locator('#detailStock').textContent()), 'Out-of-stock product exposes the frozen availability state');
+      await page.getByRole('button',{name:'Add to Cart',exact:true}).click();
+      await page.waitForTimeout(100);
+      check(dialogs.slice(outOfStockDialogs).some(d=>/Selected quantity is no longer available/i.test(d)) && await page.evaluate(before => cart.length === before, outOfStockBefore), 'Out-of-stock Add to Cart follows the existing stock-rejection path without cart mutation');
     await page.goto(`${BASE}/?product=999999`,{waitUntil:'domcontentloaded'}); await page.waitForTimeout(200);
     check(!(await page.locator('#productDetailModal').evaluate(el=>el.classList.contains('active'))), 'Invalid/missing product deep link retains existing safe handling');
 
