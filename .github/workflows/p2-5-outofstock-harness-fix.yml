@@ -1,0 +1,39 @@
+name: P2.5 out-of-stock harness correction
+on:
+  push:
+    branches: [agent/p1-final-validation]
+    paths: [.github/workflows/p2-5-outofstock-harness-fix.yml]
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/p1-final-validation
+      - name: Align out-of-stock assertion with frozen product-detail behavior
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('validation/p2_5_cart_checkout_targeted.cjs')
+          s=p.read_text()
+          old="""    check(/Out of stock/i.test(await page.locator('#detailStock').textContent()) && await page.getByRole('button',{name:'Add to Cart',exact:true}).isDisabled(), 'Out-of-stock product remains unavailable through existing product path');"""
+          new="""    const outOfStockBefore = await page.evaluate(() => cart.length);
+                const outOfStockDialogs = dialogs.length;
+                check(/Out of stock/i.test(await page.locator('#detailStock').textContent()), 'Out-of-stock product exposes the frozen availability state');
+                await page.getByRole('button',{name:'Add to Cart',exact:true}).click();
+                await page.waitForTimeout(100);
+                check(dialogs.slice(outOfStockDialogs).some(d=>/Selected quantity is no longer available/i.test(d)) && await page.evaluate(before => cart.length === before, outOfStockBefore), 'Out-of-stock Add to Cart follows the existing stock-rejection path without cart mutation');"""
+          assert old in s, 'out-of-stock assertion anchor missing'
+          p.write_text(s.replace(old,new,1))
+          PY
+          node --check validation/p2_5_cart_checkout_targeted.cjs
+          git diff --check
+      - name: Commit validation-only correction
+        run: |
+          git config user.name "kemeg25-create"
+          git config user.email "kem.eg25@gmail.com"
+          git add validation/p2_5_cart_checkout_targeted.cjs
+          git commit -m "Align P2.5 out-of-stock validation with frozen behavior"
+          git push origin HEAD:agent/p1-final-validation
