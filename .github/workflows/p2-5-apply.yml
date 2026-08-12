@@ -38,6 +38,16 @@ jobs:
           sed -i 's/P2.3 — SHOP \/ COLLECTION/P2.3 — COLLECTION \/ SHOP/' validation-source/validation/apply_p2_5_cart_checkout.py
           sed -i "s|'\/\* P2.1 — HEADER / NAVIGATION \*\/'|'P2.1 — HEADER / NAVIGATION'|" validation-source/validation/apply_p2_5_cart_checkout.py
           python validation-source/validation/apply_p2_5_cart_checkout.py app/index.html
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('app/index.html')
+          text=p.read_text()
+          start=text.index('/* P2.5 — CART / CHECKOUT */')
+          end=text.index('</style>', start)
+          segment=text[start:end]
+          segment='\n'.join(line.rstrip() for line in segment.split('\n'))
+          p.write_text(text[:start]+segment+text[end:])
+          PY
 
       - name: Verify source and scope
         working-directory: app
